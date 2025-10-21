@@ -12,18 +12,20 @@
     "predev:ssl": "bash ./config/ssl/trust.sh"
   },
   "dependencies": {
+    "@t3-oss/env-nextjs": "^0.13.8",
+    "next": "16.0.0-beta.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "16.0.0-beta.0"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
-    "babel-plugin-react-compiler": "1.0.0",
-    "typescript": "^5",
+    "@biomejs/biome": "2.2.0",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
+    "babel-plugin-react-compiler": "1.0.0",
     "tailwindcss": "^4",
-    "@biomejs/biome": "2.2.0"
+    "typescript": "^5"
   }
 }
