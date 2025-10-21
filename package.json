@@ -7,7 +7,9 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "biome check",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "dev:ssl": "next dev --turbopack --experimental-https --experimental-https-ca ./config/ssl/certificates/RootCA.crt --experimental-https-key ./config/ssl/certificates/localhost.key --experimental-https-cert ./config/ssl/certificates/localhost.crt",
+    "predev:ssl": "bash ./config/ssl/trust.sh"
   },
   "dependencies": {
     "react": "19.1.0",
