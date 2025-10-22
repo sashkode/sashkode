@@ -4,10 +4,6 @@ Product engineer from **Ottawa, Canada 🇨🇦**
 
 Coding for 15+ years with a couple startup exits. I love refining my stack and tinkering it to perfection — great software isn't just about making it work, it's about making it beautiful and scalable.
 
-### About [This Repo](https://github.com/sashkode/sashkode)
-
-This is the repository for **[sashkode.dev](https://sashkode.dev)** — my personal site and blog where I share insights, experiments, and deep dives into software engineering.
-
 ### Currently
 
 🎥 Launching my YouTube channel — documenting the deep dives and sharing what I learn  
@@ -17,9 +13,11 @@ This is the repository for **[sashkode.dev](https://sashkode.dev)** — my perso
 
 ### Connect
 
-[![YouTube](https://img.shields.io/badge/YouTube-FE1533?style=flat&logoColor=white)](https://youtube.com/@sashkode)
+[![Youtube](https://img.shields.io/badge/Youtube-FE1533?style=flat&logoColor=white)](https://youtube.com/@sashkode)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat&logoColor=white)](https://linkedin.com/in/alex-daoust)
 
 ---
 
 *Join me as we build things that matter and create abstractions that empower.*
+
+PS: This is the readme of [the repository](https://github.com/sashkode/sashkode) for **[sashkode.dev](https://sashkode.dev)** — my personal site and blog where I share insights, experiments, and deep dives into software engineering. Check it out!
