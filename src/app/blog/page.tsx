@@ -1,4 +1,5 @@
 import Image from "next/image";
+
 import { SubdomainLink } from "~/lib/navigation/client/components/subdomain-link";
 
 export default async function Blog() {
