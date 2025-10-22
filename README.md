@@ -4,6 +4,10 @@ Product engineer from **Ottawa, Canada 🇨🇦**
 
 Coding for 15+ years with a couple startup exits. I love refining my stack and tinkering it to perfection — great software isn't just about making it work, it's about making it beautiful and scalable.
 
+### About [This Repo](https://github.com/sashkode/sashkode)
+
+This is the repository for **[sashkode.dev](https://sashkode.dev)** — my personal site and blog where I share insights, experiments, and deep dives into software engineering.
+
 ### Currently
 
 🎥 Launching my YouTube channel — documenting the deep dives and sharing what I learn  
