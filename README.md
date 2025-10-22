@@ -1,36 +1,21 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## <img src="https://emojis.slackmojis.com/emojis/images/1643516071/20940/wave.gif?1643516071" width="30" /> Hey, I'm Alex D'Aoust  <small style="color: gray;">(it's pronounced "D'oh" 🍩)</small> 
 
-## Getting Started
+Product engineer from **Ottawa, Canada 🇨🇦**
 
-First, run the development server:
+Coding for 15+ years with a couple startup exits. I love refining my stack and tinkering it to perfection — great software isn't just about making it work, it's about making it beautiful and scalable.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### Currently
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+🎥 Launching my YouTube channel — documenting the deep dives and sharing what I learn  
+🛠️ Building with Next.js, TypeScript, and modern tools that actually move the needle  
+🧪 Experimenting with new patterns, performance optimization, and developer tooling  
+📚 Exploring what makes great software great
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Connect
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+[![YouTube](https://img.shields.io/badge/YouTube-FE1533?style=flat&logoColor=white)](https://youtube.com/@sashkode)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat&logoColor=white)](https://linkedin.com/in/alex-daoust)
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+*Join me as we build things that matter and create abstractions that empower.*
