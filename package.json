@@ -2,11 +2,13 @@
   "name": "sashkode",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.19.0",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "biome check",
+    "typecheck": "tsc --noEmit",
     "format": "biome format --write",
     "dev:ssl": "next dev --turbopack --experimental-https --experimental-https-ca ./config/ssl/certificates/RootCA.crt --experimental-https-key ./config/ssl/certificates/localhost.key --experimental-https-cert ./config/ssl/certificates/localhost.crt",
     "predev:ssl": "bash ./config/ssl/trust.sh"

@@ -1,0 +1,50 @@
+name: 🔍 Checks
+
+on:
+  pull_request:
+    branches: ['*']
+  push:
+    branches: ['trunk']
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+env:
+  FORCE_COLOR: 3
+
+jobs:
+  setup:
+    name: 🏗️ Setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup CI
+        uses: ./config/github/setup
+        id: setup
+
+  lint:
+    name: 🧹 Lint
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup CI
+        uses: ./config/github/setup
+      - name: Lint
+        run: pnpm lint
+
+  typecheck:
+    name: 🔬 Typecheck
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup CI
+        uses: ./config/github/setup
+      - name: Typecheck
+        run: pnpm typecheck
