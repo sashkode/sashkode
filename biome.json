@@ -20,15 +20,50 @@
     "rules": {
       "recommended": true,
       "style": {
-        "noProcessEnv": "error"
+        "noProcessEnv": "error",
+        "useImportType": "error",
+        "noDefaultExport": "error",
+        "noNegationElse": "error",
+        "noEnum": "error",
+        "noImplicitBoolean": "error",
+        "noInferrableTypes": "error",
+        "noYodaExpression": "error"
       },
       "suspicious": {
-        "noUnknownAtRules": "off"
+        "noUnknownAtRules": "off",
+        "noConsole": "warn"
+      },
+      "nursery": {
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error",
+        "noUnnecessaryConditions": "error",
+        "useExhaustiveSwitchCases": "error",
+        "useReactFunctionComponents": "error",
+        "useSortedClasses": {
+          "options": {},
+          "level": "error",
+          "fix": "safe"
+        }
+      },
+      "correctness": {
+        "noUnusedImports": {
+          "options": {},
+          "level": "error",
+          "fix": "safe"
+        }
       }
     },
     "domains": {
       "next": "recommended",
       "react": "recommended"
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteProperties": "asNeeded",
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all"
     }
   },
   "assist": {
@@ -63,6 +98,45 @@
     }
   },
   "overrides": [
+    {
+      "includes": [
+        "**/page.tsx",
+        "**/layout.tsx",
+        "**/template.tsx",
+        "**/error.tsx",
+        "**/global-error.tsx",
+        "**/loading.tsx",
+        "**/not-found.tsx",
+        "**/default.tsx",
+        "**/page.ts",
+        "**/layout.ts",
+        "**/template.ts",
+        "**/error.ts",
+        "**/global-error.ts",
+        "**/loading.ts",
+        "**/not-found.ts",
+        "**/default.ts",
+        "next.config.ts",
+        "postcss.config.mjs"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDefaultExport": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["config/**/*.ts", "**/server/**/*.ts", "**/server/**/*.tsx"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
     {
       "includes": ["src/env/**/*.ts"],
       "linter": {

@@ -1,4 +1,4 @@
-import { createEnv } from "@t3-oss/env-nextjs";
+import { createEnv } from '@t3-oss/env-nextjs';
 
 /**
  * Client-side environment configuration
