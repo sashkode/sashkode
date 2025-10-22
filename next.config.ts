@@ -5,6 +5,7 @@ import "~/env/client";
 import "~/env/server";
 
 import { env } from "~/env/server";
+
 import { createSubdomainConfig } from "./config/ssl/next-subdomains";
 
 const { rewrites, redirects } = createSubdomainConfig(env, ["sashkode.dev", "sashkode.app"]);
