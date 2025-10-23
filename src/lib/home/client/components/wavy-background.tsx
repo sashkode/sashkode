@@ -68,6 +68,7 @@ export const WavyBackground = ({
         ctx.beginPath();
         ctx.lineWidth = waveWidth || 50;
         ctx.strokeStyle = waveColors[i % waveColors.length];
+        ctx.lineCap = 'round';
         for (let x = 0; x < w; x += 5) {
           const y = noise(x / 800, 0.3 * i, ntRef.current) * 100;
           ctx.lineTo(x, y + h * 0.5);
@@ -111,7 +112,9 @@ export const WavyBackground = ({
 
   return (
     <div className={cn(containerClassName)}>
-      <canvas className="-z-1 fade-in absolute inset-0 animate-in duration-5000" ref={canvasRef} id="canvas" style={isSafari ? { filter: `blur(${blur}px)` } : {}} />
+      <div className="fade-in -z-1 absolute inset-0 animate-in duration-5000">
+        <canvas className="absolute inset-0" ref={canvasRef} id="canvas" style={isSafari ? { filter: `blur(${blur}px)` } : {}} />
+      </div>
       <div className={cn('relative', className)} {...props}>
         {children}
       </div>
