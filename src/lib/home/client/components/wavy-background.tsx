@@ -60,7 +60,7 @@ export const WavyBackground = ({
     ctx.filter = `blur(${blur}px)`;
     ntRef.current = 0;
 
-    const waveColors = colors ?? ['#38bdf8', '#818cf8', '#c084fc', '#e879f9', '#22d3ee'];
+    const waveColors = colors ?? ['#ff6b7a', '#f8fef4', '#bde8ec', '#6fa3c9', '#4a7ba7'];
 
     const drawWave = (n: number) => {
       ntRef.current += getSpeed();
@@ -78,7 +78,7 @@ export const WavyBackground = ({
     };
 
     const render = () => {
-      ctx.fillStyle = backgroundFill || 'black';
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--background') || 'black';
       ctx.globalAlpha = waveOpacity || 0.5;
       ctx.fillRect(0, 0, w, h);
       drawWave(5);
@@ -111,8 +111,8 @@ export const WavyBackground = ({
 
   return (
     <div className={cn(containerClassName)}>
-      <canvas className="-z-1 absolute inset-0" ref={canvasRef} id="canvas" style={isSafari ? { filter: `blur(${blur}px)` } : {}} />
-      <div className={cn('relative z-10', className)} {...props}>
+      <canvas className="-z-1 fade-in absolute inset-0 animate-in duration-5000" ref={canvasRef} id="canvas" style={isSafari ? { filter: `blur(${blur}px)` } : {}} />
+      <div className={cn('relative', className)} {...props}>
         {children}
       </div>
     </div>
