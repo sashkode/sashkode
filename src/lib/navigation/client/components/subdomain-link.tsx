@@ -29,8 +29,9 @@ interface SubdomainLinkProps extends Omit<ComponentProps<typeof Link>, 'href'> {
  * @param children - The link content
  * @param props - Additional Next.js Link props
  */
-export function SubdomainLink({ subdomain, pathname = '/', children, ...props }: SubdomainLinkProps) {
+export function SubdomainLink({ subdomain, pathname = '/', children, prefetch: originalPrefetch, ...props }: SubdomainLinkProps) {
   const [computedHref, setComputedHref] = useState<string>(pathname);
+  const [prefetch, setPrefetch] = useState<Parameters<typeof Link>['0']['prefetch']>(false);
 
   useEffect(() => {
     const hostname = window.location.hostname;
@@ -44,10 +45,12 @@ export function SubdomainLink({ subdomain, pathname = '/', children, ...props }:
     } else {
       setComputedHref(`${protocol}//${subdomain}.${rootDomain}${portSegment}${pathname}`);
     }
-  }, [subdomain, pathname]);
+
+    setPrefetch(originalPrefetch);
+  }, [subdomain, pathname, originalPrefetch]);
 
   return (
-    <Link href={computedHref} {...props}>
+    <Link prefetch={prefetch} href={computedHref} {...props}>
       {children}
     </Link>
   );
