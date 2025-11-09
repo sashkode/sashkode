@@ -1,7 +1,7 @@
-import type { Redirect, Rewrite } from 'next/dist/lib/load-custom-routes';
+import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
 
 type VercelEnv = Readonly<{
-  VERCEL_ENV?: 'development' | 'preview' | 'production' | undefined;
+  VERCEL_ENV?: "development" | "preview" | "production" | undefined;
   VERCEL_URL?: string | undefined;
   VERCEL_PROJECT_PRODUCTION_URL?: string | undefined;
   VERCEL_BRANCH_URL?: string | undefined;
@@ -88,19 +88,28 @@ type VercelEnv = Readonly<{
  * - You can mix static subdomains (`blog/`) and dynamic ones (`[tenant]/`)
  * - In local development with SSL, `app.localhost` is your root domain and subdomains are like `blog.app.localhost`
  */
-export const createSubdomainConfig = (env: VercelEnv, customDomains: string[] = []) => {
+export const createSubdomainConfig = (
+  env: VercelEnv,
+  customDomains: string[] = []
+) => {
   // Determine root domain based on Vercel environment variables and custom domains for non-production builds
-  const rootDomain = env.VERCEL_ENV ? `(${env.VERCEL_URL}|${env.VERCEL_BRANCH_URL}|${env.VERCEL_PROJECT_PRODUCTION_URL}|${customDomains.join('|')})` : 'app.localhost';
+  const rootDomain = env.VERCEL_ENV
+    ? `(${env.VERCEL_URL}|${env.VERCEL_BRANCH_URL}|${
+        env.VERCEL_PROJECT_PRODUCTION_URL
+      }|${customDomains.join("|")})`
+    : "app.localhost";
 
   // biome-ignore lint/style/noProcessEnv: Required to detect dev mode and SSL mode
   const lifecycleEvent = process.env.npm_lifecycle_event;
-  const isDev = lifecycleEvent ? ['dev', 'dev:ssl'].includes(lifecycleEvent) : false;
-  const isDevSSL = lifecycleEvent === 'dev:ssl';
+  const isDev = lifecycleEvent
+    ? ["dev", "dev:ssl"].includes(lifecycleEvent)
+    : false;
+  const isDevSSL = lifecycleEvent === "dev:ssl";
 
   let rewritesLogged = false;
 
   return {
-    rewrites: (() => {
+    rewrites: () => {
       if (!rewritesLogged) {
         console.log(` \x1b[36m✓\x1b[0m Valid rewrite domains: ${rootDomain}`);
         rewritesLogged = true;
@@ -109,21 +118,21 @@ export const createSubdomainConfig = (env: VercelEnv, customDomains: string[] = 
         beforeFiles: [
           {
             // Handle subdomain routing
-            source: '/:path((?!_next|_static|_vercel|.well-known|.*\\.\\w+$).*)*',
-            has: [{ type: 'host', value: `(?<subdomain>.*).${rootDomain}` }],
-            missing: [{ type: 'host', value: `root.${rootDomain}` }],
-            destination: '/:subdomain*/:path*',
+            source:
+              "/:path((?!_next|_static|_vercel|.well-known|.*\\.\\w+$).*)*",
+            has: [{ type: "host", value: `(?<subdomain>.*).${rootDomain}` }],
+            missing: [{ type: "host", value: `root.${rootDomain}` }],
+            destination: "/:subdomain*/:path*",
           },
           {
             // Handle root domain routing
-            source: '/:path((?!_next|_static|_vercel|.well-known|.*\\.\\w+$).*)*',
-            has: [{ type: 'host', value: `${rootDomain}` }],
-            destination: '/root/:path*',
+            source:
+              "/:path((?!_next|_static|_vercel|.well-known|.*\\.\\w+$).*)*",
+            has: [{ type: "host", value: `${rootDomain}` }],
+            destination: "/root/:path*",
           },
         ],
-      };
-    }) as () => {
-      beforeFiles?: Rewrite[];
+      } satisfies { beforeFiles: Rewrite[] };
     },
 
     redirects: (() => {
@@ -133,23 +142,23 @@ export const createSubdomainConfig = (env: VercelEnv, customDomains: string[] = 
               {
                 // Redirect root localhost to app.localhost (for better subdomain https support)
                 permanent: false,
-                source: '/:path*',
-                has: [{ type: 'host', value: 'localhost' }],
-                destination: 'https://app.localhost:3000/:path*',
+                source: "/:path*",
+                has: [{ type: "host", value: "localhost" }],
+                destination: "https://app.localhost:3000/:path*",
               },
             ]
           : [
               {
                 // Non-SSL dev: redirect to http app.localhost
                 permanent: false,
-                source: '/:path*',
-                has: [{ type: 'host', value: 'localhost' }],
-                destination: 'http://app.localhost:3000/:path*',
+                source: "/:path*",
+                has: [{ type: "host", value: "localhost" }],
+                destination: "http://app.localhost:3000/:path*",
               },
             ];
       }
 
       return [];
-    }) as () => Redirect[],
+    }) satisfies () => Redirect[],
   };
 };
