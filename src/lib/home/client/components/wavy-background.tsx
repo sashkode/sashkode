@@ -11,8 +11,7 @@ export const WavyBackground = ({
   className,
   containerClassName,
   colors,
-  waveWidth,
-  backgroundFill,
+  waveWidth = 30,
   blur = 10,
   speed = 'fast',
   waveOpacity = 0.5,
@@ -23,7 +22,6 @@ export const WavyBackground = ({
   containerClassName?: string;
   colors?: string[];
   waveWidth?: number;
-  backgroundFill?: string;
   blur?: number;
   speed?: 'slow' | 'fast';
   waveOpacity?: number;
@@ -66,7 +64,7 @@ export const WavyBackground = ({
       ntRef.current += getSpeed();
       for (let i = 0; i < n; i++) {
         ctx.beginPath();
-        ctx.lineWidth = waveWidth || 50;
+        ctx.lineWidth = waveWidth;
         ctx.strokeStyle = waveColors[i % waveColors.length];
         ctx.lineCap = 'round';
         for (let x = 0; x < w; x += 5) {
