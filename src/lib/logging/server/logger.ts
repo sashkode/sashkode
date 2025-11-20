@@ -1,41 +1,35 @@
-import "server-only";
+import 'server-only';
 
-import pino from "pino";
-import pinoPretty from "pino-pretty";
+import pino from 'pino';
+import pinoPretty from 'pino-pretty';
 
-import { env } from "~/env/server";
+import { env } from '~/env/server';
 
 /**
  * Create and configure the server-side Pino logger instance
  */
 const createLogger = () => {
-  const isDevelopment = env.VERCEL_ENV
-    ? ["development", "preview"].includes(env.VERCEL_ENV)
-    : false;
+  const isDevelopment = env.VERCEL_ENV ? ['development', 'preview'].includes(env.VERCEL_ENV) : false;
 
   // Create pretty stream in development with custom formatting
   const prettyStream = isDevelopment
     ? pinoPretty({
         colorize: true,
-        ignore: "pid,hostname",
-        translateTime: "SYS:HH:MM:ss.l",
+        ignore: 'pid,hostname',
+        translateTime: 'SYS:HH:MM:ss.l',
         singleLine: true,
         messageFormat: (log, messageKey, _levelLabel, { colors }) => {
           const action = log.action as string | undefined;
           delete log.action; // Remove action to avoid duplication in the message
           delete log.requestId; // Remove requestId (not needed in message, only in structured data)
-          return action
-            ? `${colors.white(
-                `SERVER_ACTION(${colors.magenta(action)})${colors.white(":")}`
-              )} ${log[messageKey]}`
-            : `${log[messageKey]}`;
+          return action ? `${colors.white(`SERVER_ACTION(${colors.magenta(action)})${colors.white(':')}`)} ${log[messageKey]}` : `${log[messageKey]}`;
         },
       })
     : undefined;
 
   const pinoLogger = pino(
     {
-      level: isDevelopment ? "debug" : "info",
+      level: isDevelopment ? 'debug' : 'info',
 
       // Base fields for all logs
       base: {},
@@ -55,7 +49,7 @@ const createLogger = () => {
         // level: (label) => ({ level: label }),
       },
     },
-    prettyStream
+    prettyStream,
   );
 
   // Create wrapper functions that put message first
@@ -69,16 +63,12 @@ const createLogger = () => {
     child: (obj: object) => {
       const childLogger = pinoLogger.child(obj);
       return {
-        trace: (msg: string, data?: object) =>
-          childLogger.trace(data ?? {}, msg),
-        debug: (msg: string, data?: object) =>
-          childLogger.debug(data ?? {}, msg),
+        trace: (msg: string, data?: object) => childLogger.trace(data ?? {}, msg),
+        debug: (msg: string, data?: object) => childLogger.debug(data ?? {}, msg),
         info: (msg: string, data?: object) => childLogger.info(data ?? {}, msg),
         warn: (msg: string, data?: object) => childLogger.warn(data ?? {}, msg),
-        error: (msg: string, data?: object) =>
-          childLogger.error(data ?? {}, msg),
-        fatal: (msg: string, data?: object) =>
-          childLogger.fatal(data ?? {}, msg),
+        error: (msg: string, data?: object) => childLogger.error(data ?? {}, msg),
+        fatal: (msg: string, data?: object) => childLogger.fatal(data ?? {}, msg),
       };
     },
   };

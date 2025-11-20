@@ -23,6 +23,9 @@ importers:
       next:
         specifier: 16.0.0-beta.0
         version: 16.0.0-beta.0(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      next-safe-action:
+        specifier: ^8.0.11
+        version: 8.0.11(next@16.0.0-beta.0(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       pino:
         specifier: ^10.1.0
         version: 10.1.0
@@ -625,6 +628,14 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  next-safe-action@8.0.11:
+    resolution: {integrity: sha512-gqJLmnQLAoFCq1kRBopN46New+vx1n9J9Y/qDQLXpv/VqU40AWxDakvshwwnWAt8R0kLvlakNYNLX5PqlXWSMg==}
+    engines: {node: '>=18.17'}
+    peerDependencies:
+      next: '>= 14.0.0'
+      react: '>= 18.2.0'
+      react-dom: '>= 18.2.0'
+
   next@16.0.0-beta.0:
     resolution: {integrity: sha512-RrpQl/FkN4v+hwcfsgj+ukTDyf3uQ1mcbNs229M9H0POMc8P0LhgrNDAWEiQHviYicLZorWJ47RoQYCzVddkww==}
     engines: {node: '>=20.9.0'}
@@ -1174,6 +1185,12 @@ snapshots:
   minimist@1.2.8: {}
 
   nanoid@3.3.11: {}
+
+  next-safe-action@8.0.11(next@16.0.0-beta.0(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
+    dependencies:
+      next: 16.0.0-beta.0(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      react: 19.1.0
+      react-dom: 19.1.0(react@19.1.0)
 
   next@16.0.0-beta.0(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
     dependencies:
