@@ -128,11 +128,21 @@
       }
     },
     {
-      "includes": ["config/**/*.ts", "**/server/**/*.ts", "**/server/**/*.tsx"],
+      "includes": ["config/**/*.ts"],
       "linter": {
         "rules": {
           "suspicious": {
             "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/server/**/*.ts", "**/server/**/*.tsx"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "error"
           }
         }
       }
