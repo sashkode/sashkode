@@ -135,6 +135,8 @@ export const createSubdomainConfig = (
       } satisfies { beforeFiles: Rewrite[] };
     },
 
+    allowedDevOrigins: ["app.localhost", "*.app.localhost"],
+
     redirects: (() => {
       if (isDev) {
         return isDevSSL
