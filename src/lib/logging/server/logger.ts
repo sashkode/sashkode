@@ -9,7 +9,7 @@ import { env } from '~/env/server';
  * Create and configure the server-side Pino logger instance
  */
 const createLogger = () => {
-  const isDevelopment = env.VERCEL_ENV ? ['development', 'preview'].includes(env.VERCEL_ENV) : false;
+  const isDevelopment = env.VERCEL_ENV ? ['development', 'preview'].includes(env.VERCEL_ENV) : true;
 
   // Create pretty stream in development with custom formatting
   const prettyStream = isDevelopment

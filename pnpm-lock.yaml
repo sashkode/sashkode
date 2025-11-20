@@ -29,9 +29,6 @@ importers:
       pino:
         specifier: ^10.1.0
         version: 10.1.0
-      pino-pretty:
-        specifier: ^13.1.2
-        version: 13.1.2
       react:
         specifier: 19.1.0
         version: 19.1.0
@@ -66,6 +63,9 @@ importers:
       babel-plugin-react-compiler:
         specifier: 1.0.0
         version: 1.0.0
+      pino-pretty:
+        specifier: ^13.1.2
+        version: 13.1.2
       tailwindcss:
         specifier: ^4
         version: 4.1.15
