@@ -12,6 +12,9 @@ const { rewrites, redirects, allowedDevOrigins } = createSubdomainConfig(env, ['
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  logging: {
+    incomingRequests: false,
+  },
   allowedDevOrigins,
   rewrites,
   redirects,

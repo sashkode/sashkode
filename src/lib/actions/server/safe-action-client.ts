@@ -127,13 +127,16 @@ type ActionMetadata<T extends string> = {
  */
 export const createServerAction = <T extends string>(metadata: ActionMetadata<T>) => {
   const requestId = crypto.randomUUID();
-  const actionLogger = logger.child({ action: metadata.actionName, requestId });
+  const actionLogger = logger.child({ scope: 'SERVER_ACTION', topic: metadata.actionName, requestId });
   return createSafeActionClient({
     defineMetadataSchema: () => metadataSchema,
     handleServerError: (e, utils) => {
       const { clientInput } = utils;
 
-      actionLogger.debug('Caught a server error! 🧪', {
+      const logMethod = e instanceof ServerError ? actionLogger.debug : actionLogger.error;
+      const logMessage = e instanceof ServerError ? 'Caught a known server error!' : 'Caught an unknown server error!';
+
+      logMethod(logMessage, {
         errorType: e.constructor.name,
         errorMessage: e.message,
         errorCode: e instanceof ServerError ? e.errorCode : undefined,
@@ -176,11 +179,11 @@ export const createServerAction = <T extends string>(metadata: ActionMetadata<T>
           });
         } else if (result.serverError) {
           if (result.serverError === DEFAULT_SERVER_ERROR_MESSAGE) {
-            actionLogger.error('Completed with unknown server error!', {
+            actionLogger.error('Completed with an unknown server error!', {
               executionDuration,
             });
           } else {
-            actionLogger.warn('Completed with known server error!', {
+            actionLogger.warn('Completed with a known server error!', {
               serverError: result.serverError,
               executionDuration,
             });
@@ -190,7 +193,7 @@ export const createServerAction = <T extends string>(metadata: ActionMetadata<T>
         return result;
       } catch (error) {
         const executionDuration = Date.now() - startTime;
-        actionLogger.error('Failed with exception!', {
+        actionLogger.error('Failed with an exception!', {
           executionDuration,
         });
         throw error;

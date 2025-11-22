@@ -17,6 +17,7 @@ export const helloAction = createServerAction({ actionName: 'hello-world' })
     logger.info('Received message:', { message });
 
     if (Math.random() < 0.5) {
+      // throw new Error('Simulated server error. Please try again later.');
       throw new ServerError('Simulated server error. Please try again later.', ErrorCode.SERVICE_UNAVAILABLE);
     }
 
