@@ -8,7 +8,7 @@ function stripAnsiCodes(str: string): string {
 }
 
 export async function register() {
-  const { logger } = await import('~/lib/logging/server/logger');
+  const { Logger } = await import('~/lib/logging/server/logger');
 
   const createConsoleMethod = (method: 'error' | 'info' | 'warn' | 'debug') => {
     return (...args: unknown[]) => {
@@ -47,21 +47,21 @@ export async function register() {
       }
 
       if (error && hasData && messages.length > 0) {
-        logger[method](finalMessage, { ...data, error });
+        Logger[method](finalMessage, { ...data, error });
       } else if (error && messages.length > 0) {
-        logger[method](finalMessage, { error });
+        Logger[method](finalMessage, { error });
         // biome-ignore lint/nursery/noUnnecessaryConditions: Required
       } else if (hasData && messages.length > 0) {
-        logger[method](finalMessage, data);
+        Logger[method](finalMessage, data);
       } else if (error && hasData && messages.length === 0) {
-        logger[method](finalMessage, { ...data, error });
+        Logger[method](finalMessage, { ...data, error });
       } else if (error && messages.length === 0) {
-        logger[method](finalMessage, { error });
+        Logger[method](finalMessage, { error });
         // biome-ignore lint/nursery/noUnnecessaryConditions: Required
       } else if (hasData && messages.length === 0) {
-        logger[method](finalMessage, data);
+        Logger[method](finalMessage, data);
       } else {
-        logger[method](finalMessage);
+        Logger[method](finalMessage);
       }
     };
   };

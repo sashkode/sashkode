@@ -116,10 +116,10 @@ const createLogger = () => {
  *
  * @example
  * ```typescript
- * import { logger } from '~/lib/logging/server/logger';
+ * import { Logger } from '~/lib/logging/server/logger';
  *
- * logger.info('User signed up', { userId: '123', email: 'user@example.com' });
- * logger.error('Database error', { error: error.message, query: 'SELECT...' });
+ * Logger.info('User signed up', { userId: '123', email: 'user@example.com' });
+ * Logger.error('Database error', { error: error.message, query: 'SELECT...' });
  * ```
  */
-export const logger = createLogger();
+export const Logger = createLogger();
