@@ -4,7 +4,7 @@ import { customAlphabet } from 'nanoid';
 import { ActionBindArgsValidationError, ActionMetadataValidationError, ActionOutputDataValidationError, createSafeActionClient } from 'next-safe-action';
 import { z } from 'zod';
 
-import { logger } from '~/lib/logging/server/logger';
+import { Logger } from '~/lib/logging/server/logger';
 import { type KebabCase, kebabCaseSchema } from '~/lib/validation/shared/kebab-case';
 
 /**
@@ -123,7 +123,7 @@ type ActionMetadata<T extends string> = {
  *
  * @example
  * ```typescript
- * export const myAction = createServerAction({ actionName: 'my-action' })
+ * export const myAction = ServerAction.create({ actionName: 'my-action' })
  *   .inputSchema(z.object({ email: z.string().email() }))
  *   .action(async ({ parsedInput, ctx }) => {
  *     ctx.logger.info('Processing action');
@@ -131,14 +131,14 @@ type ActionMetadata<T extends string> = {
  *   });
  * ```
  */
-export const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
+const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
   createSafeActionClient({
     defineMetadataSchema: () => metadataSchema,
     handleServerError: (e, utils) => {
       const { clientInput, ctx } = utils;
 
       // biome-ignore lint/suspicious/noExplicitAny: We know the ctx will have a logger, unless someone removes it from the context or we are throwing before the first middleware (e.g. during metadata validation)
-      const actionLogger = ((ctx as unknown as any).logger as ReturnType<(typeof logger)['child']> | undefined) ?? logger.child({ scope: 'SERVER_ACTION', topic: metadata.actionName });
+      const actionLogger = ((ctx as unknown as any).logger as ReturnType<(typeof Logger)['child']> | undefined) ?? Logger.child({ scope: 'SERVER_ACTION', topic: metadata.actionName });
 
       // Default to error logging and generic client message
       let logMethod = actionLogger.error;
@@ -182,7 +182,7 @@ export const createServerAction = <T extends string>(metadata: ActionMetadata<T>
     .metadata(metadata as z.infer<typeof metadataSchema>)
     .use(({ next }) => {
       const requestId = `req_${generateId()}`;
-      const actionLogger = logger.child({ scope: 'SERVER_ACTION', topic: metadata.actionName, requestId });
+      const actionLogger = Logger.child({ scope: 'SERVER_ACTION', topic: metadata.actionName, requestId });
       return next({
         ctx: { requestId, logger: actionLogger },
       });
@@ -230,3 +230,10 @@ export const createServerAction = <T extends string>(metadata: ActionMetadata<T>
         throw error;
       }
     });
+
+/**
+ * ServerAction namespace for creating type safe server actions with built-in logging and error handling
+ */
+export const ServerAction = {
+  create: createServerAction,
+};

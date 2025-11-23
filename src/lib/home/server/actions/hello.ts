@@ -4,13 +4,13 @@ import 'server-only';
 
 import { z } from 'zod';
 
-import { createServerAction, ErrorCode, ServerError } from '~/lib/actions/server/safe-action-client';
+import { ErrorCode, ServerAction, ServerError } from '~/lib/actions/server/safe-action-client';
 
 const helloSchema = z.object({
   message: z.string(),
 });
 
-export const helloAction = createServerAction({ actionName: 'hello-world' })
+export const helloAction = ServerAction.create({ actionName: 'hello-world' })
   .inputSchema(helloSchema)
   .action(async ({ parsedInput: { message }, ctx: { logger } }) => {
     // For now, just log the message for demonstration
