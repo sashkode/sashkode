@@ -31,7 +31,7 @@ const createPinoLogger = () => {
             let formattedMessage = `(${scope}`;
             if (topic) formattedMessage += `:${colors.magenta(topic)}`;
             formattedMessage += ')';
-            message = `${colors.white(formattedMessage)} ${log[messageKey]}`;
+            message = `${colors.white(`${formattedMessage}:`)} ${log[messageKey]}`;
           }
 
           return `\b\b ${message}`; // prepend "\b\b" to move cursor back and overwrite the ": " added by pino-pretty after the level label
