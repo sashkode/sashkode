@@ -14,10 +14,11 @@ import type { ScreamingSnakeCase } from '~/lib/validation/shared/screaming-snake
 const generateId = customAlphabet('abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789', 22);
 
 const createPinoLogger = () => {
+  const isLocal = !env.VERCEL_ENV;
   const isDevelopment = env.VERCEL_ENV ? ['development', 'preview'].includes(env.VERCEL_ENV) : true;
 
   // Create pretty stream in development with custom formatting
-  const prettyStream = isDevelopment
+  const prettyStream = isLocal
     ? pinoPretty({
         colorize: true,
         ignore: 'pid,hostname',
