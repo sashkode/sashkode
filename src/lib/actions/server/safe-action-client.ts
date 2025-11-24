@@ -1,6 +1,5 @@
 import 'server-only';
 
-import { customAlphabet } from 'nanoid';
 import { ActionBindArgsValidationError, ActionMetadataValidationError, ActionOutputDataValidationError, createSafeActionClient } from 'next-safe-action';
 import { z } from 'zod';
 
@@ -11,11 +10,6 @@ import { type KebabCase, kebabCaseSchema } from '~/lib/validation/shared/kebab-c
  * Default error message returned to clients when an unexpected server error occurs
  */
 const DEFAULT_SERVER_ERROR_MESSAGE = 'An unexpected error occurred. Please try again later.';
-
-/**
- * Simple `nanoid` generator for unique request IDs with the base58 alphabet (no easily confused characters)
- */
-const generateId = customAlphabet('abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789', 22);
 
 /**
  * HTTP error codes used throughout the application for client and server errors
@@ -181,10 +175,9 @@ const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
   })
     .metadata(metadata as z.infer<typeof metadataSchema>)
     .use(({ next }) => {
-      const requestId = `req_${generateId()}`;
-      const actionLogger = Logger.child({ scope: 'SERVER_ACTION', topic: metadata.actionName, requestId });
+      const actionLogger = Logger.child({ scope: 'SERVER_ACTION', topic: metadata.actionName });
       return next({
-        ctx: { requestId, logger: actionLogger },
+        ctx: { logger: actionLogger },
       });
     })
     .use(async ({ ctx: { logger }, next, clientInput }) => {

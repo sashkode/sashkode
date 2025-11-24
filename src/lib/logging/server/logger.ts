@@ -1,11 +1,17 @@
 import 'server-only';
 
+import { customAlphabet } from 'nanoid';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
 
 import { env } from '~/env/server';
 import type { KebabCase } from '~/lib/validation/shared/kebab-case';
 import type { ScreamingSnakeCase } from '~/lib/validation/shared/screaming-snake-case';
+
+/**
+ * Simple `nanoid` generator for unique request IDs with the base58 alphabet (no easily confused characters)
+ */
+const generateId = customAlphabet('abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789', 22);
 
 const createPinoLogger = () => {
   const isDevelopment = env.VERCEL_ENV ? ['development', 'preview'].includes(env.VERCEL_ENV) : true;
@@ -95,7 +101,11 @@ const createLogger = () => {
     error: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => pinoLoggerInstance.error(obj ?? {}, msg),
     fatal: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => pinoLoggerInstance.fatal(obj ?? {}, msg),
     child: <Scope extends string, Topic extends string>(obj: LogObject<Scope, Topic>) => {
-      const childLogger = pinoLoggerInstance.child(obj);
+      const childLogger = pinoLoggerInstance.child(
+        Object.assign(obj, {
+          correlationId: `corr_${generateId()}`,
+        }),
+      );
       return {
         trace: <Scope extends string, Topic extends string>(msg: string, data?: LogObject<Scope, Topic>) => childLogger.trace(data ?? {}, msg),
         debug: <Scope extends string, Topic extends string>(msg: string, data?: LogObject<Scope, Topic>) => childLogger.debug(data ?? {}, msg),
