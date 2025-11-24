@@ -18,7 +18,7 @@ export default async function Home() {
               Blog
             </SubdomainLink>{' '}
             or a random{' '}
-            <SubdomainLink subdomain={`/${Math.random().toString(36).substring(2, 15)}`} className="font-medium text-zinc-950 dark:text-zinc-50">
+            <SubdomainLink subdomain={`${Math.random().toString(36).substring(2, 15)}`} className="font-medium text-zinc-950 dark:text-zinc-50">
               Subdomain
             </SubdomainLink>
             .
