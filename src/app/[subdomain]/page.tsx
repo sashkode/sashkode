@@ -24,8 +24,9 @@ export default Page.create({
     {
       test: z.string().min(3).optional(),
     },
-    async ({ errors, getPathParams }) => {
+    async ({ errors, getPathParams, logger }) => {
       const { subdomain } = await getPathParams();
+      logger.warn(`Search params validation failed for subdomain '${subdomain}'`, { errors });
       return (
         <SubdomainPageLayout>
           <h1 className="max-w-xs font-semibold text-3xl text-black leading-10 tracking-tight dark:text-zinc-50">Subdomain ({subdomain})</h1>
@@ -41,9 +42,11 @@ export default Page.create({
       );
     },
   )
-  .page(async ({ getPathParams, getSearchParams }) => {
+  .page(async ({ getPathParams, getSearchParams, logger }) => {
     const { subdomain } = await getPathParams();
     const { test } = await getSearchParams();
+
+    logger.info(`Rendering subdomain page for '${subdomain}'${test ? ` with test='${test}'` : ''}`);
 
     return (
       <SubdomainPageLayout>
