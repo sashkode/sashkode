@@ -3,7 +3,7 @@ import Image from 'next/image';
 import z from 'zod';
 
 import { SubdomainLink } from '~/lib/navigation/client/components/subdomain-link';
-import { Page } from '~/lib/pages/server/next-safe-page';
+import { Page } from '~/lib/navigation/server/next-safe-page';
 
 const SubdomainPageLayout = ({ children }: { children: React.ReactNode }) => {
   return (
