@@ -1,3 +1,4 @@
+import type { AppRoutes } from 'next/types/routes';
 import type { ReactElement } from 'react';
 
 import z from 'zod';
@@ -6,7 +7,6 @@ import { Logger } from '~/lib/logging/server/logger';
 import type { KebabCase } from '~/lib/validation/shared/kebab-case';
 
 import { parseSearchParams, type SearchParamsResultForSchema } from './search-params';
-import type { AppRoutes } from '../../../../.next/types/routes';
 
 export type NextSearchParams = Record<string, string | string[] | undefined>;
 
