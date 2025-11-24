@@ -3,8 +3,12 @@ import Image from 'next/image';
 import { HelloButton } from '~/lib/home/client/components/hello-button';
 import { WavyBackground } from '~/lib/home/client/components/wavy-background';
 import { SubdomainLink } from '~/lib/navigation/client/components/subdomain-link';
+import { Page } from '~/lib/navigation/server/next-safe-page';
 
-export default async function Home() {
+export default Page.create({
+  path: '/root',
+  name: 'home',
+}).page(() => {
   return (
     <div className="flex min-h-dvh items-center justify-center font-sans">
       <main className="flex min-h-dvh w-full max-w-3xl flex-col items-center justify-between px-16 py-32 sm:items-start">
@@ -27,4 +31,4 @@ export default async function Home() {
       </main>
     </div>
   );
-}
+});
