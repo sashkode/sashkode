@@ -1,9 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import type { AppRoutes, ParamMap } from 'next/types/routes';
 import { type ComponentProps, useEffect, useState } from 'react';
-
-import type { AppRoutes, ParamMap } from '../../../../../.next/dev/types/routes';
 
 // --- Helpers ---
 
