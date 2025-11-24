@@ -1,7 +1,9 @@
 import type { ReactElement } from 'react';
 
+import { customAlphabet } from 'nanoid';
 import z from 'zod';
 
+import { Logger } from '~/lib/logging/server/logger';
 import type { KebabCase } from '~/lib/validation/shared/kebab-case';
 
 import { parseSearchParams, type SearchParamsResultForSchema } from './search-params';
@@ -9,11 +11,13 @@ import type { AppRoutes } from '../../../../.next/types/routes';
 
 export type NextSearchParams = Record<string, string | string[] | undefined>;
 
+const generateId = customAlphabet('abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789', 22);
+
 type PathParams = Record<string, string>;
 
 type SearchParamsError<S> = Extract<SearchParamsResultForSchema<S>, { success: false }>['errors'];
 
-type ValidationErrorFallback<Schema extends z.ZodTypeAny, Path extends AppRoutes> = (props: { errors: SearchParamsError<Schema>; getUnsafeSearchParams: () => Promise<NextSearchParams>; getPathParams: () => PageProps<Path>['params'] }) => Promise<ReactElement> | ReactElement;
+type ValidationErrorFallback<Schema extends z.ZodTypeAny, Path extends AppRoutes> = (props: { errors: SearchParamsError<Schema>; getUnsafeSearchParams: () => Promise<NextSearchParams>; getPathParams: () => PageProps<Path>['params']; logger: ReturnType<typeof Logger.child> }) => Promise<ReactElement> | ReactElement;
 
 // The only props Next.js App Router pages receive
 type NextPageProps = {
@@ -29,6 +33,7 @@ type EnhancedProps<Schema extends z.ZodObject<z.ZodRawShape> | undefined, Path e
    * These are the dynamic segments of the URL path.
    */
   getPathParams: () => PageProps<Path>['params'];
+  logger: ReturnType<typeof Logger.child>;
 } & (Schema extends z.ZodObject<z.ZodRawShape>
   ? HasErrorHandler extends true
     ? {
@@ -63,9 +68,11 @@ type GetSchemaType<T> = T extends z.ZodObject<z.ZodRawShape> ? T : T extends z.Z
 class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.ZodObject<z.ZodRawShape> | undefined = undefined, HasValidationErrorFallback extends boolean = false> {
   schema: Schema = undefined as Schema;
   validationErrorFallback: ValidationErrorFallback<Schema extends z.ZodTypeAny ? Schema : never, Route> | undefined;
+  name: string;
 
-  // biome-ignore lint/complexity/noUselessConstructor: Actually useful for type inference, props may be useful later
-  constructor(_path: Route, _name: KebabCase<'name', Name>) {}
+  constructor(_path: Route, name: KebabCase<'name', Name>) {
+    this.name = name as unknown as string;
+  }
 
   /**
    * Defines the schema for the search parameters (query string) of the page.
@@ -131,8 +138,14 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
    */
   page = (pageComponent: (props: EnhancedProps<Schema, Route, HasValidationErrorFallback>) => Promise<ReactElement> | ReactElement) => {
     const PageComponent: PageFn = (props) => {
+      const requestId = `req_${generateId()}`;
+      const logger = Logger.child({ scope: 'PAGE', topic: this.name, requestId });
+
+      logger.info('Rendering page');
+
       const enhancedProps = {
         getPathParams: async () => props.params as PageProps<Route>['params'],
+        logger,
       } as EnhancedProps<Schema, Route, HasValidationErrorFallback>;
 
       if (this.schema && this.validationErrorFallback) {
@@ -141,12 +154,15 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
         return (async () => {
           const result = await parseSearchParams(props.searchParams, schema);
           if (!result.success) {
+            logger.warn('Search params validation failed', { errors: result.errors });
             return validationErrorFallback({
               errors: result.errors as SearchParamsError<Schema>,
               getUnsafeSearchParams: async () => props.searchParams,
               getPathParams: async () => props.params as PageProps<Route>['params'],
+              logger,
             });
           }
+          logger.info('Search params validation successful', { searchParams: result.searchParams });
           Object.assign(enhancedProps, {
             getSearchParams: async () => result.searchParams,
           });
@@ -157,7 +173,15 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
       if (this.schema) {
         const schema = this.schema;
         Object.assign(enhancedProps, {
-          parseSearchParams: async () => parseSearchParams(props.searchParams, schema),
+          parseSearchParams: async () => {
+            const result = await parseSearchParams(props.searchParams, schema);
+            if (result.success) {
+              logger.info('Search params validation successful', { searchParams: result.searchParams });
+            } else {
+              logger.warn('Search params validation failed', { errors: result.errors });
+            }
+            return result;
+          },
         });
       }
 
