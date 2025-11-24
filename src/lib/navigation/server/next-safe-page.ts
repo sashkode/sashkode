@@ -1,6 +1,5 @@
 import type { ReactElement } from 'react';
 
-import { customAlphabet } from 'nanoid';
 import z from 'zod';
 
 import { Logger } from '~/lib/logging/server/logger';
@@ -10,8 +9,6 @@ import { parseSearchParams, type SearchParamsResultForSchema } from './search-pa
 import type { AppRoutes } from '../../../../.next/types/routes';
 
 export type NextSearchParams = Record<string, string | string[] | undefined>;
-
-const generateId = customAlphabet('abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789', 22);
 
 type PathParams = Record<string, string>;
 
@@ -138,8 +135,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
    */
   page = (pageComponent: (props: EnhancedProps<Schema, Route, HasValidationErrorFallback>) => Promise<ReactElement> | ReactElement) => {
     const PageComponent: PageFn = (props) => {
-      const requestId = `req_${generateId()}`;
-      const logger = Logger.child({ scope: 'PAGE', topic: this.name, requestId });
+      const logger = Logger.child({ scope: 'PAGE', topic: this.name });
 
       logger.info('Rendering page');
 
