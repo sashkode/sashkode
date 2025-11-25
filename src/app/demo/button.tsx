@@ -9,7 +9,7 @@ import type DemoPage from './page';
 
 export const MsgButton = ({ message }: { message: string }) => {
   const { executeAsync } = useAction(demoAction);
-  const demoPageContext = usePageContext<typeof DemoPage>();
+  const demoPageContext = usePageContext<typeof DemoPage>('demo');
   //   const demoPageContext2 = usePage<typeof DemoPage>();
   //   const demoPageContext3 = usePageFallback<typeof DemoPage>();
 

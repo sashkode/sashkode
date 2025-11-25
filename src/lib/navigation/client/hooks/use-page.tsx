@@ -83,18 +83,52 @@ export const PageFallbackContextProvider = <Name extends string, Schema extends 
   return <PageFallbackContext.Provider value={value}>{children}</PageFallbackContext.Provider>;
 };
 
-export const usePage = <Page extends AnyPage>() => {
+/**
+ * Hook to access page context within a page component.
+ *
+ * @param expectedName - Optional page name for runtime validation. If provided, throws if the context's page name doesn't match.
+ *
+ * @example
+ * ```tsx
+ * // Without runtime validation
+ * const { searchParams } = usePage<typeof DemoPage>();
+ *
+ * // With runtime validation
+ * const { searchParams } = usePage<typeof DemoPage>('demo');
+ * ```
+ */
+export const usePage = <Page extends AnyPage>(expectedName?: Parameters<Page>[1]) => {
   const context = use(PageContext);
   if (context === undefined) {
     throw new Error('`usePage` must be used within a `PageContextProvider`. If you are in a validation error fallback, use `usePageFallback` or `usePageContext` instead.');
   }
+  if (expectedName !== undefined && context.name !== expectedName) {
+    throw new Error(`\`usePage\` expected page '${expectedName}' but was used in page '${context.name}'.`);
+  }
   return context as unknown as Prettify<PageContextValue<Parameters<Page>[1], Parameters<Page>[2], Parameters<Page>[3]>>;
 };
 
-export const usePageFallback = <Page extends AnyPage>() => {
+/**
+ * Hook to access page fallback context within a validation error fallback.
+ *
+ * @param expectedName - Optional page name for runtime validation. If provided, throws if the context's page name doesn't match.
+ *
+ * @example
+ * ```tsx
+ * // Without runtime validation
+ * const { validationErrors } = usePageFallback<typeof DemoPage>();
+ *
+ * // With runtime validation
+ * const { validationErrors } = usePageFallback<typeof DemoPage>('demo');
+ * ```
+ */
+export const usePageFallback = <Page extends AnyPage>(expectedName?: Parameters<Page>[1]) => {
   const context = use(PageFallbackContext);
   if (context === undefined) {
     throw new Error('`usePageFallback` must be used within a `PageFallbackContextProvider`. If you are in a page component, use `usePage` or `usePageContext` instead.');
+  }
+  if (expectedName !== undefined && context.name !== expectedName) {
+    throw new Error(`\`usePageFallback\` expected page '${expectedName}' but was used in page '${context.name}'.`);
   }
   return context as unknown as Prettify<PageFallbackContextValue<Parameters<Page>[1], NonNullable<Parameters<Page>[2]>>>;
 };
@@ -104,6 +138,8 @@ export const usePageFallback = <Page extends AnyPage>() => {
  *
  * Returns a discriminated union with an `isValidationError` flag to distinguish which context
  * the component is rendered in.
+ *
+ * @param expectedName - Optional page name for runtime validation. If provided, throws if the context's page name doesn't match.
  *
  * @example
  * ```tsx
@@ -120,6 +156,12 @@ export const usePageFallback = <Page extends AnyPage>() => {
  *
  * @example
  * ```tsx
+ * // With runtime validation
+ * const { searchParams, validationErrors } = usePageContext<typeof MyPage>('my-page');
+ * ```
+ *
+ * @example
+ * ```tsx
  * // Destructure with optional properties
  * const { name, isValidationError, searchParams, validationErrors } = usePageContext<typeof MyPage>();
  *
@@ -128,11 +170,14 @@ export const usePageFallback = <Page extends AnyPage>() => {
  * }
  * ```
  */
-export const usePageContext = <Page extends AnyPage>(): UsePageContextResult<Parameters<Page>[1], NonNullable<Parameters<Page>[2]>> & {} => {
+export const usePageContext = <Page extends AnyPage>(expectedName?: Parameters<Page>[1]): UsePageContextResult<Parameters<Page>[1], NonNullable<Parameters<Page>[2]>> & {} => {
   const pageContext = useContext(PageContext);
   const fallbackContext = useContext(PageFallbackContext);
 
   if (pageContext !== undefined) {
+    if (expectedName !== undefined && pageContext.name !== expectedName) {
+      throw new Error(`\`usePageContext\` expected page '${expectedName}' but was used in page '${pageContext.name}'.`);
+    }
     return {
       isValidationError: false as const,
       name: pageContext.name,
@@ -142,11 +187,14 @@ export const usePageContext = <Page extends AnyPage>(): UsePageContextResult<Par
   }
 
   if (fallbackContext !== undefined) {
+    if (expectedName !== undefined && fallbackContext.name !== expectedName) {
+      throw new Error(`\`usePageContext\` expected page '${expectedName}' but was used in page '${fallbackContext.name}'.`);
+    }
     return {
       isValidationError: true as const,
       name: fallbackContext.name,
       searchParams: undefined,
-      validationErrors: fallbackContext.validationErrors,
+      validationErrors: fallbackContext.validationErrors as SearchParamsError<NonNullable<Parameters<Page>[2]>>,
     };
   }
 
