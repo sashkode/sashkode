@@ -63,9 +63,9 @@ type GetSchemaType<T> = T extends z.ZodObject<z.ZodRawShape> ? T : T extends z.Z
  * accessors to the page component.
  */
 class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.ZodObject<z.ZodRawShape> | undefined = undefined, HasValidationErrorFallback extends boolean = false> {
-  schema: Schema = undefined as Schema;
-  validationErrorFallback: ValidationErrorFallback<Schema extends z.ZodTypeAny ? Schema : never, Route> | undefined;
-  name: string;
+  private schema: Schema = undefined as Schema;
+  private validationErrorFallback: ValidationErrorFallback<Schema extends z.ZodTypeAny ? Schema : never, Route> | undefined;
+  private name: string;
 
   constructor(_path: Route, name: KebabCase<'name', Name>) {
     this.name = name as unknown as string;
@@ -133,7 +133,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
    * })
    * ```
    */
-  page = (pageComponent: (props: EnhancedProps<Schema, Route, HasValidationErrorFallback>) => Promise<ReactElement> | ReactElement) => {
+  page(pageComponent: (props: EnhancedProps<Schema, Route, HasValidationErrorFallback>) => Promise<ReactElement> | ReactElement) {
     const PageComponent: PageFn = (props) => {
       const logger = Logger.child({ scope: 'PAGE', topic: this.name });
 
@@ -186,7 +186,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
 
     // PageComponent.displayName = `Page(${this.name})`;
     return PageComponent;
-  };
+  }
 }
 
 // const createPage = <Path extends AppRoutes>(pageFn: ({ props }: { props: PageProps<Path> }) => React.ReactNode) => {
