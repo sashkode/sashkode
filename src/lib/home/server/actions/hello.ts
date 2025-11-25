@@ -10,7 +10,7 @@ const helloSchema = z.object({
   message: z.string(),
 });
 
-export const helloAction = ServerAction.create({ actionName: 'hello-world' })
+export const helloAction = ServerAction.create({ name: 'hello-world' })
   .inputSchema(helloSchema)
   .action(async ({ parsedInput: { message }, ctx: { logger } }) => {
     // For now, just log the message for demonstration

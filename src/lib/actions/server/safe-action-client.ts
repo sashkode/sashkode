@@ -89,7 +89,7 @@ export class ServerError extends Error {
  * Zod schema for validating action metadata
  */
 const metadataSchema = z.object({
-  actionName: kebabCaseSchema(),
+  name: kebabCaseSchema(),
 });
 
 /**
@@ -98,8 +98,8 @@ const metadataSchema = z.object({
  * @template T - String literal type for the action name
  */
 type ActionMetadata<T extends string> = {
-  actionName: KebabCase<'actionName', T>;
-} & Omit<z.infer<typeof metadataSchema>, 'actionName'>;
+  name: KebabCase<'name', T>;
+} & Omit<z.infer<typeof metadataSchema>, 'name'>;
 
 /**
  * Creates a configured server action client with logging, error handling, and execution tracking
@@ -117,7 +117,7 @@ type ActionMetadata<T extends string> = {
  *
  * @example
  * ```typescript
- * export const myAction = ServerAction.create({ actionName: 'my-action' })
+ * export const myAction = ServerAction.create({ name: 'my-action' })
  *   .inputSchema(z.object({ email: z.string().email() }))
  *   .action(async ({ parsedInput, ctx }) => {
  *     ctx.logger.info('Processing action');
@@ -132,7 +132,7 @@ const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
       const { clientInput, ctx } = utils;
 
       // biome-ignore lint/suspicious/noExplicitAny: We know the ctx will have a logger, unless someone removes it from the context or we are throwing before the first middleware (e.g. during metadata validation)
-      const actionLogger = ((ctx as unknown as any).logger as ReturnType<(typeof Logger)['child']> | undefined) ?? Logger.child({ scope: 'SERVER_ACTION', topic: metadata.actionName });
+      const actionLogger = ((ctx as unknown as any).logger as ReturnType<(typeof Logger)['child']> | undefined) ?? Logger.child({ scope: 'SERVER_ACTION', topic: metadata.name });
 
       // Default to error logging and generic client message
       let logMethod = actionLogger.error;
@@ -175,7 +175,7 @@ const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
   })
     .metadata(metadata as z.infer<typeof metadataSchema>)
     .use(({ next }) => {
-      const actionLogger = Logger.child({ scope: 'SERVER_ACTION', topic: metadata.actionName });
+      const actionLogger = Logger.child({ scope: 'SERVER_ACTION', topic: metadata.name });
       return next({
         ctx: { logger: actionLogger },
       });
