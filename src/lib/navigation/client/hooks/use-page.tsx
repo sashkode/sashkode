@@ -1,0 +1,154 @@
+'use client';
+
+import { createContext, type ReactNode, use, useContext } from 'react';
+
+import type z from 'zod';
+
+import type { AnyPage, NextSearchParams, SearchParamsError } from '~/lib/navigation/server/next-safe-page';
+import type { SearchParamsResultForSchema } from '~/lib/navigation/server/search-params';
+import type { Prettify } from '~/lib/utils/shared/prettify';
+
+/**
+ * Context value type for page context with conditional types based on schema and fallback configuration.
+ *
+ * Three scenarios:
+ * 1. Schema + Fallback: `searchParams` is the validated data
+ * 2. Schema, no Fallback: `searchParamsResult` is the discriminated union result
+ * 3. No Schema: `unsafeSearchParams` is the raw search params
+ */
+export type PageContextValue<Name extends string = string, Schema extends z.ZodObject<z.ZodRawShape> | undefined = undefined, HasFallback extends boolean = false> = {
+  name: Name;
+} & (Schema extends z.ZodObject<z.ZodRawShape>
+  ? HasFallback extends true
+    ? {
+        /** Validated and parsed search params (schema + fallback provided) */
+        searchParams: z.output<Schema>;
+      }
+    : {
+        /** Discriminated union result from parsing (schema provided, no fallback) */
+        searchParamsResult: SearchParamsResultForSchema<Schema>;
+      }
+  : {
+      /** Raw unvalidated search params (no schema provided) */
+      unsafeSearchParams: NextSearchParams;
+    });
+
+/**
+ * Context value type for the search params validation fallback.
+ *
+ * This is available when a page has a schema with a fallback, and the fallback is being rendered
+ * due to validation failure.
+ */
+export type PageFallbackContextValue<Name extends string = string, Schema extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.ZodRawShape>> = {
+  name: Name;
+  /** The validation errors from the failed search params parsing */
+  validationErrors: Prettify<SearchParamsError<Schema>>;
+};
+
+/**
+ * Result type for usePageContext hook.
+ *
+ * Returns a discriminated union based on whether the component is rendered
+ * in the page context or the validation fallback context.
+ */
+export type UsePageContextResult<Name extends string = string, Schema extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.ZodRawShape>> =
+  | {
+      /** Component is rendered in the page context (validation succeeded) */
+      isValidationError: false;
+      name: Name;
+      /** Validated and parsed search params */
+      searchParams: z.output<Schema>;
+      validationErrors?: undefined;
+    }
+  | {
+      /** Component is rendered in the validation fallback context (validation failed) */
+      isValidationError: true;
+      name: Name;
+      searchParams?: undefined;
+      /** The validation errors from the failed search params parsing */
+      validationErrors: Prettify<SearchParamsError<Schema>>;
+    };
+
+// biome-ignore lint/suspicious/noExplicitAny: Allow any for generic context
+const PageContext = createContext<PageContextValue<any, any, any> | undefined>(undefined);
+
+// biome-ignore lint/suspicious/noExplicitAny: Allow any for generic context
+const PageFallbackContext = createContext<PageFallbackContextValue<any, any> | undefined>(undefined);
+
+export const PageContextProvider = <Name extends string, Schema extends z.ZodObject<z.ZodRawShape> | undefined = undefined, HasFallback extends boolean = false>({ value, children }: { value: PageContextValue<Name, Schema, HasFallback>; children: ReactNode }) => {
+  return <PageContext.Provider value={value}>{children}</PageContext.Provider>;
+};
+
+export const PageFallbackContextProvider = <Name extends string, Schema extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.ZodRawShape>>({ value, children }: { value: PageFallbackContextValue<Name, Schema>; children: ReactNode }) => {
+  return <PageFallbackContext.Provider value={value}>{children}</PageFallbackContext.Provider>;
+};
+
+export const usePage = <Page extends AnyPage>() => {
+  const context = use(PageContext);
+  if (context === undefined) {
+    throw new Error('`usePage` must be used within a `PageContextProvider`. If you are in a validation error fallback, use `usePageFallback` or `usePageContext` instead.');
+  }
+  return context as unknown as Prettify<PageContextValue<Parameters<Page>[1], Parameters<Page>[2], Parameters<Page>[3]>>;
+};
+
+export const usePageFallback = <Page extends AnyPage>() => {
+  const context = use(PageFallbackContext);
+  if (context === undefined) {
+    throw new Error('`usePageFallback` must be used within a `PageFallbackContextProvider`. If you are in a page component, use `usePage` or `usePageContext` instead.');
+  }
+  return context as unknown as Prettify<PageFallbackContextValue<Parameters<Page>[1], NonNullable<Parameters<Page>[2]>>>;
+};
+
+/**
+ * Hook that works in both the page context and the validation fallback context.
+ *
+ * Returns a discriminated union with an `isValidationError` flag to distinguish which context
+ * the component is rendered in.
+ *
+ * @example
+ * ```tsx
+ * const result = usePageContext<typeof MyPage>();
+ *
+ * if (result.isValidationError) {
+ *   // Handle validation errors
+ *   console.log(result.validationErrors);
+ * } else {
+ *   // Use parsed search params
+ *   console.log(result.searchParams);
+ * }
+ * ```
+ *
+ * @example
+ * ```tsx
+ * // Destructure with optional properties
+ * const { name, isValidationError, searchParams, validationErrors } = usePageContext<typeof MyPage>();
+ *
+ * if (searchParams) {
+ *   // TypeScript knows searchParams is defined here
+ * }
+ * ```
+ */
+export const usePageContext = <Page extends AnyPage>(): UsePageContextResult<Parameters<Page>[1], NonNullable<Parameters<Page>[2]>> & {} => {
+  const pageContext = useContext(PageContext);
+  const fallbackContext = useContext(PageFallbackContext);
+
+  if (pageContext !== undefined) {
+    return {
+      isValidationError: false as const,
+      name: pageContext.name,
+      searchParams: (pageContext as PageContextValue<string, z.ZodObject<z.ZodRawShape>, true>).searchParams as z.output<NonNullable<Parameters<Page>[2]>>,
+      validationErrors: undefined,
+    };
+  }
+
+  if (fallbackContext !== undefined) {
+    return {
+      isValidationError: true as const,
+      name: fallbackContext.name,
+      searchParams: undefined,
+      validationErrors: fallbackContext.validationErrors,
+    };
+  }
+
+  throw new Error('`usePageContext` must be used within a page component or its validation error fallback.');
+};

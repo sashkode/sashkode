@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import z from 'zod';
 
 import { Logger } from '~/lib/logging/server/logger';
+import { PageContextProvider, type PageContextValue, PageFallbackContextProvider } from '~/lib/navigation/client/hooks/use-page';
 import type { KebabCase } from '~/lib/validation/shared/kebab-case';
 
 import { parseSearchParams, type SearchParamsResultForSchema } from './search-params';
@@ -12,7 +13,7 @@ export type NextSearchParams = Record<string, string | string[] | undefined>;
 
 type PathParams = Record<string, string>;
 
-type SearchParamsError<S> = Extract<SearchParamsResultForSchema<S>, { success: false }>['errors'];
+export type SearchParamsError<S> = Extract<SearchParamsResultForSchema<S>, { success: false }>['errors'];
 
 type ValidationErrorFallback<Schema extends z.ZodTypeAny, Path extends AppRoutes> = (props: { errors: SearchParamsError<Schema>; getUnsafeSearchParams: () => Promise<NextSearchParams>; getPathParams: () => PageProps<Path>['params']; logger: ReturnType<typeof Logger.child> }) => Promise<ReactElement> | ReactElement;
 
@@ -22,7 +23,7 @@ type NextPageProps = {
   searchParams: Promise<NextSearchParams>;
 };
 
-type PageFn = (props: NextPageProps) => Promise<ReactElement> | ReactElement;
+type PageFn<N extends string, S extends z.ZodObject<z.ZodRawShape> | undefined, HasFallback extends boolean = false> = (props: NextPageProps, _name: N, _schema: S, _hasFallback: HasFallback) => Promise<ReactElement> | ReactElement;
 
 type EnhancedProps<Schema extends z.ZodObject<z.ZodRawShape> | undefined, Path extends AppRoutes, HasErrorHandler extends boolean> = {
   /**
@@ -134,7 +135,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
    * ```
    */
   page(pageComponent: (props: EnhancedProps<Schema, Route, HasValidationErrorFallback>) => Promise<ReactElement> | ReactElement) {
-    const PageComponent: PageFn = (props) => {
+    const PageComponent: PageFn<Name, Schema, HasValidationErrorFallback> = (props) => {
       const logger = Logger.child({ scope: 'PAGE', topic: this.name });
 
       logger.info('Rendering page');
@@ -144,6 +145,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
         logger,
       } as EnhancedProps<Schema, Route, HasValidationErrorFallback>;
 
+      // Case 1: Schema + Fallback -> searchParams
       if (this.schema && this.validationErrorFallback) {
         const schema = this.schema;
         const validationErrorFallback = this.validationErrorFallback;
@@ -151,48 +153,90 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
           const result = await parseSearchParams(props.searchParams, schema);
           if (!result.success) {
             logger.warn('Search params validation failed', { errors: result.errors });
-            return validationErrorFallback({
-              errors: result.errors as SearchParamsError<Schema>,
-              getUnsafeSearchParams: async () => props.searchParams,
-              getPathParams: async () => props.params as PageProps<Route>['params'],
-              logger,
-            });
+            return (
+              <PageFallbackContextProvider<Name, NonNullable<Schema>>
+                value={{
+                  name: this.name as Name,
+                  validationErrors: result.errors as SearchParamsError<Schema>,
+                }}
+              >
+                {
+                  await validationErrorFallback({
+                    errors: result.errors as SearchParamsError<Schema>,
+                    getUnsafeSearchParams: async () => props.searchParams,
+                    getPathParams: async () => props.params as PageProps<Route>['params'],
+                    logger,
+                  })
+                }
+              </PageFallbackContextProvider>
+            );
           }
           logger.info('Search params validation successful', { searchParams: result.searchParams });
           Object.assign(enhancedProps, {
             getSearchParams: async () => result.searchParams,
           });
-          return pageComponent(enhancedProps);
+          return (
+            <PageContextProvider<Name, Schema, true>
+              value={
+                {
+                  name: this.name as Name,
+                  searchParams: result.searchParams,
+                } as unknown as PageContextValue<Name, Schema, true>
+              }
+            >
+              {await pageComponent(enhancedProps)}
+            </PageContextProvider>
+          );
         })();
       }
 
+      // Case 2: Schema, no Fallback -> searchParamsResult (eagerly parsed)
       if (this.schema) {
         const schema = this.schema;
-        Object.assign(enhancedProps, {
-          parseSearchParams: async () => {
-            const result = await parseSearchParams(props.searchParams, schema);
-            if (result.success) {
-              logger.info('Search params validation successful', { searchParams: result.searchParams });
-            } else {
-              logger.warn('Search params validation failed', { errors: result.errors });
-            }
-            return result;
-          },
-        });
+        return (async () => {
+          const result = await parseSearchParams(props.searchParams, schema);
+          if (result.success) {
+            logger.info('Search params validation successful', { searchParams: result.searchParams });
+          } else {
+            logger.warn('Search params validation failed', { errors: result.errors });
+          }
+          Object.assign(enhancedProps, {
+            parseSearchParams: async () => result,
+          });
+          return (
+            <PageContextProvider<Name, Schema, false>
+              value={
+                {
+                  name: this.name as Name,
+                  searchParamsResult: result,
+                } as unknown as PageContextValue<Name, Schema, false>
+              }
+            >
+              {await pageComponent(enhancedProps)}
+            </PageContextProvider>
+          );
+        })();
       }
 
-      return pageComponent(enhancedProps);
+      // Case 3: No Schema -> unsafeSearchParams
+      return (async () => {
+        const rawSearchParams = await props.searchParams;
+        return (
+          <PageContextProvider<Name, undefined, false>
+            value={{
+              name: this.name as Name,
+              unsafeSearchParams: rawSearchParams,
+            }}
+          >
+            {await pageComponent(enhancedProps)}
+          </PageContextProvider>
+        );
+      })();
     };
 
-    // PageComponent.displayName = `Page(${this.name})`;
     return PageComponent;
   }
 }
-
-// const createPage = <Path extends AppRoutes>(pageFn: ({ props }: { props: PageProps<Path> }) => React.ReactNode) => {
-//   // Page implementation
-//   return null;
-// };
 
 /**
  * Page namespace containing methods to create type safe Next.js pages with search param validation
@@ -259,3 +303,6 @@ export const Page = {
    */
   create: <Route extends AppRoutes, Name extends string>({ path, name }: { path: Route; name: KebabCase<'name', Name> }) => new PageClient(path, name),
 };
+
+// biome-ignore lint/suspicious/noExplicitAny: Any schema is acceptable for the Page type
+export type AnyPage = PageFn<any, any, any>;
