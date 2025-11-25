@@ -4,7 +4,7 @@ import { createContext, type ReactNode, use, useContext } from 'react';
 
 import type z from 'zod';
 
-import type { AnyPage, NextSearchParams, SearchParamsError } from '~/lib/navigation/server/next-safe-page';
+import type { AnyPage, ExtractPageHasFallback, ExtractPageName, ExtractPageSchema, NextSearchParams, SearchParamsError } from '~/lib/navigation/server/next-safe-page';
 import type { SearchParamsResultForSchema } from '~/lib/navigation/server/search-params';
 import type { Prettify } from '~/lib/utils/shared/prettify';
 
@@ -97,7 +97,7 @@ export const PageFallbackContextProvider = <Name extends string, Schema extends 
  * const { searchParams } = usePage<typeof DemoPage>('demo');
  * ```
  */
-export const usePage = <Page extends AnyPage>(expectedName?: Parameters<Page>[1]) => {
+export const usePage = <Page extends AnyPage>(expectedName?: ExtractPageName<Page>) => {
   const context = use(PageContext);
   if (context === undefined) {
     throw new Error('`usePage` must be used within a `PageContextProvider`. If you are in a validation error fallback, use `usePageFallback` or `usePageContext` instead.');
@@ -105,7 +105,7 @@ export const usePage = <Page extends AnyPage>(expectedName?: Parameters<Page>[1]
   if (expectedName !== undefined && context.name !== expectedName) {
     throw new Error(`\`usePage\` expected page '${expectedName}' but was used in page '${context.name}'.`);
   }
-  return context as unknown as Prettify<PageContextValue<Parameters<Page>[1], Parameters<Page>[2], Parameters<Page>[3]>>;
+  return context as unknown as Prettify<PageContextValue<ExtractPageName<Page>, ExtractPageSchema<Page>, ExtractPageHasFallback<Page>>>;
 };
 
 /**
@@ -122,7 +122,7 @@ export const usePage = <Page extends AnyPage>(expectedName?: Parameters<Page>[1]
  * const { validationErrors } = usePageFallback<typeof DemoPage>('demo');
  * ```
  */
-export const usePageFallback = <Page extends AnyPage>(expectedName?: Parameters<Page>[1]) => {
+export const usePageFallback = <Page extends AnyPage>(expectedName?: ExtractPageName<Page>) => {
   const context = use(PageFallbackContext);
   if (context === undefined) {
     throw new Error('`usePageFallback` must be used within a `PageFallbackContextProvider`. If you are in a page component, use `usePage` or `usePageContext` instead.');
@@ -130,7 +130,7 @@ export const usePageFallback = <Page extends AnyPage>(expectedName?: Parameters<
   if (expectedName !== undefined && context.name !== expectedName) {
     throw new Error(`\`usePageFallback\` expected page '${expectedName}' but was used in page '${context.name}'.`);
   }
-  return context as unknown as Prettify<PageFallbackContextValue<Parameters<Page>[1], NonNullable<Parameters<Page>[2]>>>;
+  return context as unknown as Prettify<PageFallbackContextValue<ExtractPageName<Page>, NonNullable<ExtractPageSchema<Page>>>>;
 };
 
 /**
@@ -170,7 +170,7 @@ export const usePageFallback = <Page extends AnyPage>(expectedName?: Parameters<
  * }
  * ```
  */
-export const usePageContext = <Page extends AnyPage>(expectedName?: Parameters<Page>[1]): UsePageContextResult<Parameters<Page>[1], NonNullable<Parameters<Page>[2]>> & {} => {
+export const usePageContext = <Page extends AnyPage>(expectedName?: ExtractPageName<Page>): UsePageContextResult<ExtractPageName<Page>, NonNullable<ExtractPageSchema<Page>>> & {} => {
   const pageContext = useContext(PageContext);
   const fallbackContext = useContext(PageFallbackContext);
 
@@ -181,7 +181,7 @@ export const usePageContext = <Page extends AnyPage>(expectedName?: Parameters<P
     return {
       isValidationError: false as const,
       name: pageContext.name,
-      searchParams: (pageContext as PageContextValue<string, z.ZodTypeAny, true>).searchParams as z.output<NonNullable<Parameters<Page>[2]>>,
+      searchParams: (pageContext as PageContextValue<string, z.ZodTypeAny, true>).searchParams as z.output<NonNullable<ExtractPageSchema<Page>>>,
       validationErrors: undefined,
     };
   }
@@ -194,7 +194,7 @@ export const usePageContext = <Page extends AnyPage>(expectedName?: Parameters<P
       isValidationError: true as const,
       name: fallbackContext.name,
       searchParams: undefined,
-      validationErrors: fallbackContext.validationErrors as SearchParamsError<NonNullable<Parameters<Page>[2]>>,
+      validationErrors: fallbackContext.validationErrors as SearchParamsError<NonNullable<ExtractPageSchema<Page>>>,
     };
   }
 

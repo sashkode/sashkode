@@ -28,7 +28,44 @@ type NextPageProps = {
  */
 type AcceptableSchema = z.ZodObject<z.ZodRawShape> | z.ZodPipe<z.ZodTypeAny, z.ZodTypeAny>;
 
-type PageFn<N extends string, S extends AcceptableSchema | undefined, HasFallback extends boolean = false> = (props: NextPageProps, _name: N, _schema: S, _hasFallback: HasFallback) => Promise<ReactElement> | ReactElement;
+/**
+ * Symbol used to brand PageFn with type metadata while keeping the function signature
+ * compatible with Next.js App Router's expected page component type.
+ */
+declare const PageFnBrand: unique symbol;
+
+/**
+ * Type metadata stored on PageFn for type extraction.
+ */
+type PageFnMeta<N extends string, S extends AcceptableSchema | undefined, HasFallback extends boolean> = {
+  readonly name: N;
+  readonly schema: S;
+  readonly hasFallback: HasFallback;
+};
+
+/**
+ * The base page function type that matches Next.js App Router's expected signature.
+ * The type metadata (name, schema, hasFallback) is stored as a branded property
+ * to allow type extraction while keeping the function signature compatible.
+ */
+type PageFn<N extends string, S extends AcceptableSchema | undefined, HasFallback extends boolean = false> = ((props: NextPageProps) => Promise<ReactElement> | ReactElement) & {
+  readonly [PageFnBrand]: PageFnMeta<N, S, HasFallback>;
+};
+
+/**
+ * Extracts the page name type from a PageFn.
+ */
+export type ExtractPageName<P> = P extends PageFn<infer N, AcceptableSchema | undefined, boolean> ? N : never;
+
+/**
+ * Extracts the schema type from a PageFn.
+ */
+export type ExtractPageSchema<P> = P extends PageFn<string, infer S, boolean> ? S : never;
+
+/**
+ * Extracts the hasFallback boolean from a PageFn.
+ */
+export type ExtractPageHasFallback<P> = P extends PageFn<string, AcceptableSchema | undefined, infer H> ? H : never;
 
 type EnhancedProps<Schema extends AcceptableSchema | undefined, Path extends AppRoutes, HasErrorHandler extends boolean> = {
   /**
@@ -140,7 +177,9 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
    * ```
    */
   page(pageComponent: (props: EnhancedProps<Schema, Route, HasValidationErrorFallback>) => Promise<ReactElement> | ReactElement) {
-    const PageComponent: PageFn<Name, Schema, HasValidationErrorFallback> = (props) => {
+    // Cast is necessary because PageFn uses a branded type for type metadata extraction
+    // that doesn't exist at runtime - the actual function signature matches what Next.js expects
+    const PageComponent = ((props: NextPageProps) => {
       const logger = Logger.child({ scope: 'PAGE', topic: this.name });
 
       logger.info('Rendering page');
@@ -159,7 +198,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
           if (!result.success) {
             logger.warn('Search params validation failed', { errors: result.errors });
             return (
-              <PageFallbackContextProvider<Name, Schema & z.ZodTypeAny>
+              <PageFallbackContextProvider<Name, z.ZodTypeAny>
                 value={{
                   name: this.name as Name,
                   validationErrors: result.errors as SearchParamsError<Schema>,
@@ -237,7 +276,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
           </PageContextProvider>
         );
       })();
-    };
+    }) as PageFn<Name, Schema, HasValidationErrorFallback>;
 
     return PageComponent;
   }
