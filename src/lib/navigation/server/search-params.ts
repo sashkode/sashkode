@@ -179,12 +179,13 @@ const processSearchParamsForSchema = (params: Record<string, unknown>, schema: z
 };
 
 /**
- * Types to support either a plain ZodObject schema or nested ZodPipes whose
- * ultimate input is a ZodObject.
+ * Extracts the underlying ZodObject shape from either a plain ZodObject schema
+ * or nested ZodPipes whose ultimate input is a ZodObject.
  *
- * @internal
+ * Used to support schemas with transforms (`.transform()`, `.pipe()`) throughout
+ * the type system.
  */
-type InputObjectShape<S> = S extends z.ZodObject<infer O extends z.ZodRawShape> ? O : S extends z.ZodPipe<infer I extends z.ZodTypeAny, z.ZodTypeAny> ? InputObjectShape<I> : never;
+export type InputObjectShape<S> = S extends z.ZodObject<infer O extends z.ZodRawShape> ? O : S extends z.ZodPipe<infer I extends z.ZodTypeAny, z.ZodTypeAny> ? InputObjectShape<I> : never;
 
 /**
  * Union shape that reports field errors keyed by the input object's fields,

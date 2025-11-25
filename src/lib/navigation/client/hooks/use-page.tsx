@@ -16,10 +16,14 @@ import type { Prettify } from '~/lib/utils/shared/prettify';
  * 2. Schema, no Fallback: `searchParamsResult` is the discriminated union result
  * 3. No Schema: `unsafeSearchParams` is the raw search params
  */
-export type PageContextValue<Name extends string = string, Schema extends z.ZodObject<z.ZodRawShape> | undefined = undefined, HasFallback extends boolean = false> = {
+export type PageContextValue<Name extends string = string, Schema extends z.ZodTypeAny | undefined = undefined, HasFallback extends boolean = false> = {
   name: Name;
-} & (Schema extends z.ZodObject<z.ZodRawShape>
-  ? HasFallback extends true
+} & (Schema extends undefined
+  ? {
+      /** Raw unvalidated search params (no schema provided) */
+      unsafeSearchParams: NextSearchParams;
+    }
+  : HasFallback extends true
     ? {
         /** Validated and parsed search params (schema + fallback provided) */
         searchParams: z.output<Schema>;
@@ -27,11 +31,7 @@ export type PageContextValue<Name extends string = string, Schema extends z.ZodO
     : {
         /** Discriminated union result from parsing (schema provided, no fallback) */
         searchParamsResult: SearchParamsResultForSchema<Schema>;
-      }
-  : {
-      /** Raw unvalidated search params (no schema provided) */
-      unsafeSearchParams: NextSearchParams;
-    });
+      });
 
 /**
  * Context value type for the search params validation fallback.
@@ -39,7 +39,7 @@ export type PageContextValue<Name extends string = string, Schema extends z.ZodO
  * This is available when a page has a schema with a fallback, and the fallback is being rendered
  * due to validation failure.
  */
-export type PageFallbackContextValue<Name extends string = string, Schema extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.ZodRawShape>> = {
+export type PageFallbackContextValue<Name extends string = string, Schema extends z.ZodTypeAny = z.ZodTypeAny> = {
   name: Name;
   /** The validation errors from the failed search params parsing */
   validationErrors: Prettify<SearchParamsError<Schema>>;
@@ -51,7 +51,7 @@ export type PageFallbackContextValue<Name extends string = string, Schema extend
  * Returns a discriminated union based on whether the component is rendered
  * in the page context or the validation fallback context.
  */
-export type UsePageContextResult<Name extends string = string, Schema extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.ZodRawShape>> =
+export type UsePageContextResult<Name extends string = string, Schema extends z.ZodTypeAny = z.ZodTypeAny> =
   | {
       /** Component is rendered in the page context (validation succeeded) */
       isValidationError: false;
@@ -75,11 +75,11 @@ const PageContext = createContext<PageContextValue<any, any, any> | undefined>(u
 // biome-ignore lint/suspicious/noExplicitAny: Allow any for generic context
 const PageFallbackContext = createContext<PageFallbackContextValue<any, any> | undefined>(undefined);
 
-export const PageContextProvider = <Name extends string, Schema extends z.ZodObject<z.ZodRawShape> | undefined = undefined, HasFallback extends boolean = false>({ value, children }: { value: PageContextValue<Name, Schema, HasFallback>; children: ReactNode }) => {
+export const PageContextProvider = <Name extends string, Schema extends z.ZodTypeAny | undefined = undefined, HasFallback extends boolean = false>({ value, children }: { value: PageContextValue<Name, Schema, HasFallback>; children: ReactNode }) => {
   return <PageContext.Provider value={value}>{children}</PageContext.Provider>;
 };
 
-export const PageFallbackContextProvider = <Name extends string, Schema extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.ZodRawShape>>({ value, children }: { value: PageFallbackContextValue<Name, Schema>; children: ReactNode }) => {
+export const PageFallbackContextProvider = <Name extends string, Schema extends z.ZodTypeAny = z.ZodTypeAny>({ value, children }: { value: PageFallbackContextValue<Name, Schema>; children: ReactNode }) => {
   return <PageFallbackContext.Provider value={value}>{children}</PageFallbackContext.Provider>;
 };
 
@@ -181,7 +181,7 @@ export const usePageContext = <Page extends AnyPage>(expectedName?: Parameters<P
     return {
       isValidationError: false as const,
       name: pageContext.name,
-      searchParams: (pageContext as PageContextValue<string, z.ZodObject<z.ZodRawShape>, true>).searchParams as z.output<NonNullable<Parameters<Page>[2]>>,
+      searchParams: (pageContext as PageContextValue<string, z.ZodTypeAny, true>).searchParams as z.output<NonNullable<Parameters<Page>[2]>>,
       validationErrors: undefined,
     };
   }

@@ -9,9 +9,14 @@ export default Page.create({
   name: 'demo',
 })
   .searchParamsSchema(
-    {
-      msg: z.string().min(5).optional(),
-    },
+    z
+      .object({
+        msg: z.string().min(5).optional(),
+      })
+      .transform((obj) => ({
+        msg: obj.msg ?? 'No message provided',
+        isTransformed: true as const,
+      })),
     () => {
       return (
         <>

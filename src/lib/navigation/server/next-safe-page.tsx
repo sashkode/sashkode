@@ -7,7 +7,7 @@ import { Logger } from '~/lib/logging/server/logger';
 import { PageContextProvider, type PageContextValue, PageFallbackContextProvider } from '~/lib/navigation/client/hooks/use-page';
 import type { KebabCase } from '~/lib/validation/shared/kebab-case';
 
-import { parseSearchParams, type SearchParamsResultForSchema } from './search-params';
+import { type InputObjectShape, parseSearchParams, type SearchParamsResultForSchema } from './search-params';
 
 export type NextSearchParams = Record<string, string | string[] | undefined>;
 
@@ -23,16 +23,21 @@ type NextPageProps = {
   searchParams: Promise<NextSearchParams>;
 };
 
-type PageFn<N extends string, S extends z.ZodObject<z.ZodRawShape> | undefined, HasFallback extends boolean = false> = (props: NextPageProps, _name: N, _schema: S, _hasFallback: HasFallback) => Promise<ReactElement> | ReactElement;
+/**
+ * Acceptable schema types for search params: plain ZodObject or ZodPipe chains (from .transform()/.pipe())
+ */
+type AcceptableSchema = z.ZodObject<z.ZodRawShape> | z.ZodPipe<z.ZodTypeAny, z.ZodTypeAny>;
 
-type EnhancedProps<Schema extends z.ZodObject<z.ZodRawShape> | undefined, Path extends AppRoutes, HasErrorHandler extends boolean> = {
+type PageFn<N extends string, S extends AcceptableSchema | undefined, HasFallback extends boolean = false> = (props: NextPageProps, _name: N, _schema: S, _hasFallback: HasFallback) => Promise<ReactElement> | ReactElement;
+
+type EnhancedProps<Schema extends AcceptableSchema | undefined, Path extends AppRoutes, HasErrorHandler extends boolean> = {
   /**
    * Retrieves the route parameters (e.g., `slug` from `/blog/[slug]`).
    * These are the dynamic segments of the URL path.
    */
   getPathParams: () => PageProps<Path>['params'];
   logger: ReturnType<typeof Logger.child>;
-} & (Schema extends z.ZodObject<z.ZodRawShape>
+} & (InputObjectShape<Schema> extends z.ZodRawShape
   ? HasErrorHandler extends true
     ? {
         /**
@@ -54,7 +59,7 @@ type EnhancedProps<Schema extends z.ZodObject<z.ZodRawShape> | undefined, Path e
       }
   : object);
 
-type GetSchemaType<T> = T extends z.ZodObject<z.ZodRawShape> ? T : T extends z.ZodRawShape ? z.ZodObject<T> : never;
+type GetSchemaType<T> = T extends z.ZodObject<z.ZodRawShape> ? T : T extends z.ZodPipe<z.ZodTypeAny, z.ZodTypeAny> ? T : T extends z.ZodRawShape ? z.ZodObject<T> : never;
 
 /**
  * A builder class for creating type-safe Next.js pages.
@@ -63,7 +68,7 @@ type GetSchemaType<T> = T extends z.ZodObject<z.ZodRawShape> ? T : T extends z.Z
  * for a page. It handles the validation of search parameters and provides type-safe
  * accessors to the page component.
  */
-class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.ZodObject<z.ZodRawShape> | undefined = undefined, HasValidationErrorFallback extends boolean = false> {
+class PageClient<Route extends AppRoutes, Name extends string, Schema extends AcceptableSchema | undefined = undefined, HasValidationErrorFallback extends boolean = false> {
   private schema: Schema = undefined as Schema;
   private validationErrorFallback: ValidationErrorFallback<Schema extends z.ZodTypeAny ? Schema : never, Route> | undefined;
   private name: string;
@@ -79,7 +84,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
    * that returns the parsed search parameters directly. If validation fails, the error fallback
    * is rendered instead of the page.
    *
-   * @param schema - A Zod object schema or a raw shape object defining the search parameters.
+   * @param schema - A Zod object schema, raw shape object, or transformed schema (via .transform()/.pipe()).
    * @param validationErrorFallback - A function that renders a fallback UI when validation fails.
    *
    * @example
@@ -90,7 +95,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
    * )
    * ```
    */
-  searchParamsSchema<T extends z.ZodRawShape | z.ZodObject<z.ZodRawShape>>(schema: T, validationErrorFallback: ValidationErrorFallback<GetSchemaType<T>, Route>): PageClient<Route, Name, GetSchemaType<T>, true>;
+  searchParamsSchema<T extends z.ZodRawShape | AcceptableSchema>(schema: T, validationErrorFallback: ValidationErrorFallback<GetSchemaType<T>, Route>): PageClient<Route, Name, GetSchemaType<T>, true>;
 
   /**
    * Defines the schema for the search parameters (query string) of the page.
@@ -99,17 +104,17 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
    * that returns a result object (`{ success: true, data: ... }` or `{ success: false, error: ... }`).
    * You must handle the validation result manually in your page component.
    *
-   * @param schema - A Zod object schema or a raw shape object defining the search parameters.
+   * @param schema - A Zod object schema, raw shape object, or transformed schema (via .transform()/.pipe()).
    *
    * @example
    * ```tsx
    * .searchParamsSchema({ page: z.coerce.number().default(1) })
    * ```
    */
-  searchParamsSchema<T extends z.ZodRawShape | z.ZodObject<z.ZodRawShape>>(schema: T): PageClient<Route, Name, GetSchemaType<T>, false>;
+  searchParamsSchema<T extends z.ZodRawShape | AcceptableSchema>(schema: T): PageClient<Route, Name, GetSchemaType<T>, false>;
 
-  searchParamsSchema<T extends z.ZodRawShape | z.ZodObject<z.ZodRawShape>>(schema: T, validationErrorFallback?: ValidationErrorFallback<GetSchemaType<T>, Route>) {
-    const finalSchema = (schema instanceof z.ZodObject ? schema : z.object(schema as z.ZodRawShape)) as GetSchemaType<T>;
+  searchParamsSchema<T extends z.ZodRawShape | AcceptableSchema>(schema: T, validationErrorFallback?: ValidationErrorFallback<GetSchemaType<T>, Route>) {
+    const finalSchema = (schema instanceof z.ZodObject || schema instanceof z.ZodPipe ? schema : z.object(schema as z.ZodRawShape)) as GetSchemaType<T>;
 
     (this as unknown as { schema: typeof finalSchema }).schema = finalSchema;
     (this as unknown as { validationErrorFallback: typeof validationErrorFallback }).validationErrorFallback = validationErrorFallback;
@@ -154,7 +159,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends z.
           if (!result.success) {
             logger.warn('Search params validation failed', { errors: result.errors });
             return (
-              <PageFallbackContextProvider<Name, NonNullable<Schema>>
+              <PageFallbackContextProvider<Name, Schema & z.ZodTypeAny>
                 value={{
                   name: this.name as Name,
                   validationErrors: result.errors as SearchParamsError<Schema>,
