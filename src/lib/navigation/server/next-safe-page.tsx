@@ -190,7 +190,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
     // Cast is necessary because PageFn uses a branded type for type metadata extraction
     // that doesn't exist at runtime - the actual function signature matches what Next.js expects
     const PageComponent = ((props: NextPageProps) => {
-      const logger = Logger.child({ scope: 'PAGE', topic: this.name });
+      const logger = Logger.child({ scope: 'PAGE', topic: this.name as string });
 
       logger.info('Rendering page');
 
