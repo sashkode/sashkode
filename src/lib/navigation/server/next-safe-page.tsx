@@ -5,6 +5,7 @@ import z from 'zod';
 
 import { Logger } from '~/lib/logging/server/logger';
 import { PageContextProvider, type PageContextValue, PageFallbackContextProvider } from '~/lib/navigation/client/hooks/use-page';
+import type { Prettify } from '~/lib/utils/shared/prettify';
 import type { KebabCase } from '~/lib/validation/shared/kebab-case';
 
 import { type InputObjectShape, parseSearchParams, type SearchParamsResultForSchema } from './search-params';
@@ -73,9 +74,9 @@ type EnhancedProps<Schema extends AcceptableSchema | undefined, Path extends App
    * These are the dynamic segments of the URL path.
    */
   getPathParams: () => PageProps<Path>['params'];
-  logger: ReturnType<typeof Logger.child>;
-} & (InputObjectShape<Schema> extends z.ZodRawShape
-  ? HasErrorHandler extends true
+} & (InputObjectShape<Schema> extends undefined
+  ? { getUnsafeSearchParams: () => Promise<NextSearchParams> }
+  : HasErrorHandler extends true
     ? {
         /**
          * Retrieves the validated search parameters.
@@ -93,8 +94,9 @@ type EnhancedProps<Schema extends AcceptableSchema | undefined, Path extends App
          * You must handle the validation result manually.
          */
         parseSearchParams: () => Promise<SearchParamsResultForSchema<Schema>>;
-      }
-  : object);
+      }) & {
+    logger: ReturnType<typeof Logger.child>;
+  };
 
 type GetSchemaType<T> = T extends z.ZodObject<z.ZodRawShape> ? T : T extends z.ZodPipe<z.ZodTypeAny, z.ZodTypeAny> ? T : T extends z.ZodRawShape ? z.ZodObject<T> : never;
 
@@ -108,10 +110,10 @@ type GetSchemaType<T> = T extends z.ZodObject<z.ZodRawShape> ? T : T extends z.Z
 class PageClient<Route extends AppRoutes, Name extends string, Schema extends AcceptableSchema | undefined = undefined, HasValidationErrorFallback extends boolean = false> {
   private schema: Schema = undefined as Schema;
   private validationErrorFallback: ValidationErrorFallback<Schema extends z.ZodTypeAny ? Schema : never, Route> | undefined;
-  private name: string;
+  private name: Name;
 
   constructor(_path: Route, name: KebabCase<'name', Name>) {
-    this.name = name as unknown as string;
+    this.name = name as Name;
   }
 
   /**
@@ -176,7 +178,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
    * })
    * ```
    */
-  page(pageComponent: (props: EnhancedProps<Schema, Route, HasValidationErrorFallback>) => Promise<ReactElement> | ReactElement) {
+  page(pageComponent: (props: Prettify<EnhancedProps<Schema, Route, HasValidationErrorFallback>>) => Promise<ReactElement> | ReactElement) {
     // Cast is necessary because PageFn uses a branded type for type metadata extraction
     // that doesn't exist at runtime - the actual function signature matches what Next.js expects
     const PageComponent = ((props: NextPageProps) => {
@@ -187,7 +189,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
       const enhancedProps = {
         getPathParams: async () => props.params as PageProps<Route>['params'],
         logger,
-      } as EnhancedProps<Schema, Route, HasValidationErrorFallback>;
+      } as Prettify<EnhancedProps<Schema, Route, HasValidationErrorFallback>>;
 
       // Case 1: Schema + Fallback -> searchParams
       if (this.schema && this.validationErrorFallback) {
@@ -265,6 +267,9 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
       // Case 3: No Schema -> unsafeSearchParams
       return (async () => {
         const rawSearchParams = await props.searchParams;
+        Object.assign(enhancedProps, {
+          getUnsafeSearchParams: async () => rawSearchParams,
+        });
         return (
           <PageContextProvider<Name, undefined, false>
             value={{
@@ -347,6 +352,8 @@ export const Page = {
    */
   create: <Route extends AppRoutes, Name extends string>({ path, name }: { path: Route; name: KebabCase<'name', Name> }) => new PageClient(path, name),
 };
+
+export const createSafePage = Page.create;
 
 // biome-ignore lint/suspicious/noExplicitAny: Any schema is acceptable for the Page type
 export type AnyPage = PageFn<any, any, any>;
