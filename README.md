@@ -1,13 +1,13 @@
-## <img src="https://emojis.slackmojis.com/emojis/images/1643516071/20940/wave.gif?1643516071" width="30" /> Hey, I'm Alex D'Aoust  <small style="color: gray;">(it's pronounced "D'oh" 🍩)</small> 
+## <img src="https://emojis.slackmojis.com/emojis/images/1643516071/20940/wave.gif?1643516071" width="30" /> Hey, I'm Alex D'Aoust <sub><sup>(it's pronounced "D'oh" 🍩)</sup></sub>
 
 Product engineer from **Ottawa, Canada 🇨🇦**
 
-Coding for 15+ years with a couple startup exits. I love refining my stack and tinkering it to perfection — great software isn't just about making it work, it's about making it beautiful and scalable.
+Coding for 15+ years with a couple startup exits. I love refining my stack and tinkering it to perfection • great software isn't just about making it work, it's about making it beautiful and scalable.
 
 ### Currently
 
-🎥 Launching my YouTube channel — documenting the deep dives and sharing what I learn  
-🛠️ Building with Next.js, TypeScript, and modern tools that actually move the needle  
+🎥 Launching my YouTube channel • documenting the deep dives and sharing what I learn  
+🛠️ Building with Next.js, TypeScript, and modern tools that actually make you ship  
 🧪 Experimenting with new patterns, performance optimization, and developer tooling  
 📚 Exploring what makes great software great
 
