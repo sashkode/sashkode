@@ -87,9 +87,33 @@ type LogObject<Scope extends string, Topic extends string> = {
 );
 
 /**
+ * Logger method type with message first
+ */
+type LoggerMethod = <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => void;
+
+/**
+ * Child logger instance returned by `Logger.child()`
+ */
+type ChildLogger = {
+  trace: LoggerMethod;
+  debug: LoggerMethod;
+  info: LoggerMethod;
+  warn: LoggerMethod;
+  error: LoggerMethod;
+  fatal: LoggerMethod;
+};
+
+/**
+ * Logger interface defining the shape of the server-side logger
+ */
+type Logger = ChildLogger & {
+  child: <Scope extends string, Topic extends string>(obj: LogObject<Scope, Topic>) => ChildLogger;
+};
+
+/**
  * Create and configure the server-side Pino logger instance
  */
-const createLogger = () => {
+const createLogger = (): Logger => {
   // Create the Pino logger instance
   const pinoLoggerInstance = createPinoLogger();
 
@@ -108,12 +132,12 @@ const createLogger = () => {
         }),
       );
       return {
-        trace: <Scope extends string, Topic extends string>(msg: string, data?: LogObject<Scope, Topic>) => childLogger.trace(data ?? {}, msg),
-        debug: <Scope extends string, Topic extends string>(msg: string, data?: LogObject<Scope, Topic>) => childLogger.debug(data ?? {}, msg),
-        info: <Scope extends string, Topic extends string>(msg: string, data?: LogObject<Scope, Topic>) => childLogger.info(data ?? {}, msg),
-        warn: <Scope extends string, Topic extends string>(msg: string, data?: LogObject<Scope, Topic>) => childLogger.warn(data ?? {}, msg),
-        error: <Scope extends string, Topic extends string>(msg: string, data?: LogObject<Scope, Topic>) => childLogger.error(data ?? {}, msg),
-        fatal: <Scope extends string, Topic extends string>(msg: string, data?: LogObject<Scope, Topic>) => childLogger.fatal(data ?? {}, msg),
+        trace: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.trace(obj ?? {}, msg),
+        debug: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.debug(obj ?? {}, msg),
+        info: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.info(obj ?? {}, msg),
+        warn: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.warn(obj ?? {}, msg),
+        error: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.error(obj ?? {}, msg),
+        fatal: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.fatal(obj ?? {}, msg),
       };
     },
   };

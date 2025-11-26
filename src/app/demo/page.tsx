@@ -26,11 +26,11 @@ export default Page.create({
       );
     },
   )
-  .page(async () => {
-    // const { msg } = await getSearchParams();
+  .page(async ({ getSearchParams }) => {
+    const { msg } = await getSearchParams();
     return (
       <div>
-        {/* <h1>{msg}</h1> */}
+        <h1>{msg}</h1>
         <MsgButton message="message!" />
       </div>
     );
