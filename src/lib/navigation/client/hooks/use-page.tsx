@@ -4,7 +4,7 @@ import { createContext, type ReactNode, use, useContext } from 'react';
 
 import type z from 'zod';
 
-import type { AnyPage, ExtractPageHasFallback, ExtractPageName, ExtractPageSchema, NextSearchParams, SearchParamsError } from '~/lib/navigation/server/next-safe-page';
+import type { AnyPage, ExtractPageHasFallback, ExtractPageName, ExtractPagePath, ExtractPageSchema, NextSearchParams, SearchParamsError } from '~/lib/navigation/server/next-safe-page';
 import type { SearchParamsResultForSchema } from '~/lib/navigation/server/search-params';
 import type { Prettify } from '~/lib/utils/shared/prettify';
 
@@ -16,7 +16,8 @@ import type { Prettify } from '~/lib/utils/shared/prettify';
  * 2. Schema, no Fallback: `searchParamsResult` is the discriminated union result
  * 3. No Schema: `unsafeSearchParams` is the raw search params
  */
-export type PageContextValue<Name extends string = string, Schema extends z.ZodTypeAny | undefined = undefined, HasFallback extends boolean = false> = {
+export type PageContextValue<Path extends string = string, Name extends string = string, Schema extends z.ZodTypeAny | undefined = undefined, HasFallback extends boolean = false> = {
+  path: Path;
   name: Name;
 } & (Schema extends undefined
   ? {
@@ -39,7 +40,8 @@ export type PageContextValue<Name extends string = string, Schema extends z.ZodT
  * This is available when a page has a schema with a fallback, and the fallback is being rendered
  * due to validation failure.
  */
-export type PageFallbackContextValue<Name extends string = string, Schema extends z.ZodTypeAny = z.ZodTypeAny> = {
+export type PageFallbackContextValue<Path extends string = string, Name extends string = string, Schema extends z.ZodTypeAny = z.ZodTypeAny> = {
+  path: Path;
   name: Name;
   /** The validation errors from the failed search params parsing */
   validationErrors: Prettify<SearchParamsError<Schema>>;
@@ -51,10 +53,11 @@ export type PageFallbackContextValue<Name extends string = string, Schema extend
  * Returns a discriminated union based on whether the component is rendered
  * in the page context or the validation fallback context.
  */
-export type UsePageContextResult<Name extends string = string, Schema extends z.ZodTypeAny = z.ZodTypeAny> =
+export type UsePageContextResult<Path extends string = string, Name extends string = string, Schema extends z.ZodTypeAny = z.ZodTypeAny> =
   | {
       /** Component is rendered in the page context (validation succeeded) */
       isValidationError: false;
+      path: Path;
       name: Name;
       /** Validated and parsed search params */
       searchParams: z.output<Schema>;
@@ -63,6 +66,7 @@ export type UsePageContextResult<Name extends string = string, Schema extends z.
   | {
       /** Component is rendered in the validation fallback context (validation failed) */
       isValidationError: true;
+      path: Path;
       name: Name;
       searchParams?: undefined;
       /** The validation errors from the failed search params parsing */
@@ -70,16 +74,16 @@ export type UsePageContextResult<Name extends string = string, Schema extends z.
     };
 
 // biome-ignore lint/suspicious/noExplicitAny: Allow any for generic context
-const PageContext = createContext<PageContextValue<any, any, any> | undefined>(undefined);
+const PageContext = createContext<PageContextValue<any, any, any, any> | undefined>(undefined);
 
 // biome-ignore lint/suspicious/noExplicitAny: Allow any for generic context
-const PageFallbackContext = createContext<PageFallbackContextValue<any, any> | undefined>(undefined);
+const PageFallbackContext = createContext<PageFallbackContextValue<any, any, any> | undefined>(undefined);
 
-export const PageContextProvider = <Name extends string, Schema extends z.ZodTypeAny | undefined = undefined, HasFallback extends boolean = false>({ value, children }: { value: PageContextValue<Name, Schema, HasFallback>; children: ReactNode }) => {
+export const PageContextProvider = <Path extends string, Name extends string, Schema extends z.ZodTypeAny | undefined = undefined, HasFallback extends boolean = false>({ value, children }: { value: PageContextValue<Path, Name, Schema, HasFallback>; children: ReactNode }) => {
   return <PageContext.Provider value={value}>{children}</PageContext.Provider>;
 };
 
-export const PageFallbackContextProvider = <Name extends string, Schema extends z.ZodTypeAny = z.ZodTypeAny>({ value, children }: { value: PageFallbackContextValue<Name, Schema>; children: ReactNode }) => {
+export const PageFallbackContextProvider = <Path extends string, Name extends string, Schema extends z.ZodTypeAny = z.ZodTypeAny>({ value, children }: { value: PageFallbackContextValue<Path, Name, Schema>; children: ReactNode }) => {
   return <PageFallbackContext.Provider value={value}>{children}</PageFallbackContext.Provider>;
 };
 
@@ -105,7 +109,7 @@ export const usePage = <Page extends AnyPage>(expectedName?: ExtractPageName<Pag
   if (expectedName !== undefined && context.name !== expectedName) {
     throw new Error(`\`usePage\` expected page '${expectedName}' but was used in page '${context.name}'.`);
   }
-  return context as unknown as Prettify<PageContextValue<ExtractPageName<Page>, ExtractPageSchema<Page>, ExtractPageHasFallback<Page>>>;
+  return context as unknown as Prettify<PageContextValue<ExtractPagePath<Page>, ExtractPageName<Page>, ExtractPageSchema<Page>, ExtractPageHasFallback<Page>>>;
 };
 
 /**
@@ -130,7 +134,7 @@ export const usePageFallback = <Page extends AnyPage>(expectedName?: ExtractPage
   if (expectedName !== undefined && context.name !== expectedName) {
     throw new Error(`\`usePageFallback\` expected page '${expectedName}' but was used in page '${context.name}'.`);
   }
-  return context as unknown as Prettify<PageFallbackContextValue<ExtractPageName<Page>, NonNullable<ExtractPageSchema<Page>>>>;
+  return context as unknown as Prettify<PageFallbackContextValue<ExtractPagePath<Page>, ExtractPageName<Page>, NonNullable<ExtractPageSchema<Page>>>>;
 };
 
 /**
@@ -170,7 +174,7 @@ export const usePageFallback = <Page extends AnyPage>(expectedName?: ExtractPage
  * }
  * ```
  */
-export const usePageContext = <Page extends AnyPage>(expectedName?: ExtractPageName<Page>): UsePageContextResult<ExtractPageName<Page>, NonNullable<ExtractPageSchema<Page>>> & {} => {
+export const usePageContext = <Page extends AnyPage>(expectedName?: ExtractPageName<Page>): UsePageContextResult<ExtractPagePath<Page>, ExtractPageName<Page>, NonNullable<ExtractPageSchema<Page>>> & {} => {
   const pageContext = useContext(PageContext);
   const fallbackContext = useContext(PageFallbackContext);
 
@@ -180,8 +184,9 @@ export const usePageContext = <Page extends AnyPage>(expectedName?: ExtractPageN
     }
     return {
       isValidationError: false as const,
+      path: pageContext.path,
       name: pageContext.name,
-      searchParams: (pageContext as PageContextValue<string, z.ZodTypeAny, true>).searchParams as z.output<NonNullable<ExtractPageSchema<Page>>>,
+      searchParams: (pageContext as PageContextValue<string, string, z.ZodTypeAny, true>).searchParams as z.output<NonNullable<ExtractPageSchema<Page>>>,
       validationErrors: undefined,
     };
   }
@@ -192,6 +197,7 @@ export const usePageContext = <Page extends AnyPage>(expectedName?: ExtractPageN
     }
     return {
       isValidationError: true as const,
+      path: fallbackContext.path,
       name: fallbackContext.name,
       searchParams: undefined,
       validationErrors: fallbackContext.validationErrors as SearchParamsError<NonNullable<ExtractPageSchema<Page>>>,

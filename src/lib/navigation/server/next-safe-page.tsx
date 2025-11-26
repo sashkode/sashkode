@@ -38,7 +38,8 @@ declare const PageFnBrand: unique symbol;
 /**
  * Type metadata stored on PageFn for type extraction.
  */
-type PageFnMeta<N extends string, S extends AcceptableSchema | undefined, HasFallback extends boolean> = {
+type PageFnMeta<R extends string, N extends string, S extends AcceptableSchema | undefined, HasFallback extends boolean> = {
+  readonly path: R;
   readonly name: N;
   readonly schema: S;
   readonly hasFallback: HasFallback;
@@ -46,27 +47,32 @@ type PageFnMeta<N extends string, S extends AcceptableSchema | undefined, HasFal
 
 /**
  * The base page function type that matches Next.js App Router's expected signature.
- * The type metadata (name, schema, hasFallback) is stored as a branded property
+ * The type metadata (path, name, schema, hasFallback) is stored as a branded property
  * to allow type extraction while keeping the function signature compatible.
  */
-type PageFn<N extends string, S extends AcceptableSchema | undefined, HasFallback extends boolean = false> = ((props: NextPageProps) => Promise<ReactElement> | ReactElement) & {
-  readonly [PageFnBrand]: PageFnMeta<N, S, HasFallback>;
+type PageFn<R extends string, N extends string, S extends AcceptableSchema | undefined, HasFallback extends boolean = false> = ((props: NextPageProps) => Promise<ReactElement> | ReactElement) & {
+  readonly [PageFnBrand]: PageFnMeta<R, N, S, HasFallback>;
 };
 
 /**
  * Extracts the page name type from a PageFn.
  */
-export type ExtractPageName<P> = P extends PageFn<infer N, AcceptableSchema | undefined, boolean> ? N : never;
+export type ExtractPageName<P> = P extends PageFn<string, infer N, AcceptableSchema | undefined, boolean> ? N : never;
 
 /**
  * Extracts the schema type from a PageFn.
  */
-export type ExtractPageSchema<P> = P extends PageFn<string, infer S, boolean> ? S : never;
+export type ExtractPageSchema<P> = P extends PageFn<string, string, infer S, boolean> ? S : never;
 
 /**
  * Extracts the hasFallback boolean from a PageFn.
  */
-export type ExtractPageHasFallback<P> = P extends PageFn<string, AcceptableSchema | undefined, infer H> ? H : never;
+export type ExtractPageHasFallback<P> = P extends PageFn<string, string, AcceptableSchema | undefined, infer H> ? H : never;
+
+/**
+ * Extracts the path type from a PageFn.
+ */
+export type ExtractPagePath<P> = P extends PageFn<infer R, string, AcceptableSchema | undefined, boolean> ? R : never;
 
 type EnhancedProps<Schema extends AcceptableSchema | undefined, Path extends AppRoutes, HasErrorHandler extends boolean> = {
   /**
@@ -108,11 +114,13 @@ type GetSchemaType<T> = T extends z.ZodObject<z.ZodRawShape> ? T : T extends z.Z
  * accessors to the page component.
  */
 class PageClient<Route extends AppRoutes, Name extends string, Schema extends AcceptableSchema | undefined = undefined, HasValidationErrorFallback extends boolean = false> {
+  private path: Route;
   private schema: Schema = undefined as Schema;
   private validationErrorFallback: ValidationErrorFallback<Schema extends z.ZodTypeAny ? Schema : never, Route> | undefined;
   private name: Name;
 
-  constructor(_path: Route, name: KebabCase<'name', Name>) {
+  constructor(path: Route, name: KebabCase<'name', Name>) {
+    this.path = path;
     this.name = name as Name;
   }
 
@@ -200,8 +208,9 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
           if (!result.success) {
             logger.warn('Search params validation failed', { errors: result.errors });
             return (
-              <PageFallbackContextProvider<Name, z.ZodTypeAny>
+              <PageFallbackContextProvider<Route, Name, z.ZodTypeAny>
                 value={{
+                  path: this.path,
                   name: this.name as Name,
                   validationErrors: result.errors as SearchParamsError<Schema>,
                 }}
@@ -222,12 +231,13 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
             getSearchParams: async () => result.searchParams,
           });
           return (
-            <PageContextProvider<Name, Schema, true>
+            <PageContextProvider<Route, Name, Schema, true>
               value={
                 {
+                  path: this.path,
                   name: this.name as Name,
                   searchParams: result.searchParams,
-                } as unknown as PageContextValue<Name, Schema, true>
+                } as unknown as PageContextValue<Route, Name, Schema, true>
               }
             >
               {await pageComponent(enhancedProps)}
@@ -250,12 +260,13 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
             parseSearchParams: async () => result,
           });
           return (
-            <PageContextProvider<Name, Schema, false>
+            <PageContextProvider<Route, Name, Schema, false>
               value={
                 {
+                  path: this.path,
                   name: this.name as Name,
                   searchParamsResult: result,
-                } as unknown as PageContextValue<Name, Schema, false>
+                } as unknown as PageContextValue<Route, Name, Schema, false>
               }
             >
               {await pageComponent(enhancedProps)}
@@ -271,8 +282,9 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
           getUnsafeSearchParams: async () => rawSearchParams,
         });
         return (
-          <PageContextProvider<Name, undefined, false>
+          <PageContextProvider<Route, Name, undefined, false>
             value={{
+              path: this.path,
               name: this.name as Name,
               unsafeSearchParams: rawSearchParams,
             }}
@@ -281,7 +293,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
           </PageContextProvider>
         );
       })();
-    }) as PageFn<Name, Schema, HasValidationErrorFallback>;
+    }) as PageFn<Route, Name, Schema, HasValidationErrorFallback>;
 
     return PageComponent;
   }
@@ -356,4 +368,4 @@ export const Page = {
 export const createSafePage = Page.create;
 
 // biome-ignore lint/suspicious/noExplicitAny: Any schema is acceptable for the Page type
-export type AnyPage = PageFn<any, any, any>;
+export type AnyPage = PageFn<any, any, any, any>;
