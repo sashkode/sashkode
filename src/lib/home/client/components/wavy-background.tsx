@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
-import { createNoise3D } from 'simplex-noise';
+import { createNoise3D } from "simplex-noise";
 
-import { cn } from '~/lib/design-system/shared/utils';
+import { cn } from "~/lib/design-system/shared/utils";
 
 export const WavyBackground = ({
   children,
@@ -13,7 +13,7 @@ export const WavyBackground = ({
   colors,
   waveWidth = 30,
   blur = 10,
-  speed = 'fast',
+  speed = "fast",
   waveOpacity = 0.5,
   ...props
 }: {
@@ -23,7 +23,7 @@ export const WavyBackground = ({
   colors?: string[];
   waveWidth?: number;
   blur?: number;
-  speed?: 'slow' | 'fast';
+  speed?: "slow" | "fast";
   waveOpacity?: number;
   [key: string]: unknown;
 }) => {
@@ -34,9 +34,9 @@ export const WavyBackground = ({
 
   const getSpeed = () => {
     switch (speed) {
-      case 'slow':
+      case "slow":
         return 0.001;
-      case 'fast':
+      case "fast":
         return 0.002;
       default:
         return 0.001;
@@ -45,10 +45,14 @@ export const WavyBackground = ({
 
   const init = () => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
 
     ctx.canvas.width = window.innerWidth;
     ctx.canvas.height = window.innerHeight;
@@ -58,7 +62,7 @@ export const WavyBackground = ({
     ctx.filter = `blur(${blur}px)`;
     ntRef.current = 0;
 
-    const waveColors = colors ?? ['#ff6b7a', '#f8fef4', '#bde8ec', '#6fa3c9', '#4a7ba7'];
+    const waveColors = colors ?? ["#ff6b7a", "#f8fef4", "#bde8ec", "#6fa3c9", "#4a7ba7"];
 
     const drawWave = (n: number) => {
       ntRef.current += getSpeed();
@@ -66,7 +70,7 @@ export const WavyBackground = ({
         ctx.beginPath();
         ctx.lineWidth = waveWidth;
         ctx.strokeStyle = waveColors[i % waveColors.length];
-        ctx.lineCap = 'round';
+        ctx.lineCap = "round";
         for (let x = 0; x < w; x += 5) {
           const y = noise(x / 800, 0.3 * i, ntRef.current) * 100;
           ctx.lineTo(x, y + h * 0.5);
@@ -77,7 +81,7 @@ export const WavyBackground = ({
     };
 
     const render = () => {
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--background') || 'black';
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--background") || "black";
       ctx.globalAlpha = waveOpacity || 0.5;
       ctx.fillRect(0, 0, w, h);
       drawWave(5);
@@ -105,15 +109,15 @@ export const WavyBackground = ({
 
   const [isSafari, setIsSafari] = useState(false);
   useEffect(() => {
-    setIsSafari(typeof window !== 'undefined' && navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome'));
+    setIsSafari(typeof window !== "undefined" && navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome"));
   }, []);
 
   return (
     <div className={cn(containerClassName)}>
       <div className="fade-in -z-1 absolute inset-0 animate-in duration-5000">
-        <canvas className="absolute inset-0" ref={canvasRef} id="canvas" style={isSafari ? { filter: `blur(${blur}px)` } : {}} />
+        <canvas className="absolute inset-0" id="canvas" ref={canvasRef} style={isSafari ? { filter: `blur(${blur}px)` } : {}} />
       </div>
-      <div className={cn('relative', className)} {...props}>
+      <div className={cn("relative", className)} {...props}>
         {children}
       </div>
     </div>

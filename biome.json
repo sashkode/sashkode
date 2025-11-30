@@ -1,5 +1,6 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.0/schema.json",
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": ["ultracite/core", "ultracite/react", "ultracite/next"],
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -10,60 +11,22 @@
     "includes": ["**", "!node_modules", "!.next", "!dist", "!build"]
   },
   "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2,
     "lineWidth": 320
   },
   "linter": {
-    "enabled": true,
     "rules": {
-      "recommended": true,
       "style": {
         "noProcessEnv": "error",
-        "useImportType": "error",
-        "noDefaultExport": "error",
-        "noNegationElse": "error",
-        "noEnum": "error",
-        "noImplicitBoolean": "error",
-        "noInferrableTypes": "error",
-        "noYodaExpression": "error"
+        "useBlockStatements": {
+          "level": "error",
+          "fix": "safe"
+        },
+        "useUnifiedTypeSignatures": "off"
       },
+
       "suspicious": {
-        "noUnknownAtRules": "off",
         "noConsole": "warn"
-      },
-      "nursery": {
-        "noFloatingPromises": "error",
-        "noMisusedPromises": "error",
-        "noUnnecessaryConditions": "error",
-        "useExhaustiveSwitchCases": "error",
-        "useReactFunctionComponents": "error",
-        "useSortedClasses": {
-          "options": {},
-          "level": "error",
-          "fix": "safe"
-        }
-      },
-      "correctness": {
-        "noUnusedImports": {
-          "options": {},
-          "level": "error",
-          "fix": "safe"
-        }
       }
-    },
-    "domains": {
-      "next": "recommended",
-      "react": "recommended"
-    }
-  },
-  "javascript": {
-    "formatter": {
-      "quoteProperties": "asNeeded",
-      "quoteStyle": "single",
-      "semicolons": "always",
-      "trailingCommas": "all"
     }
   },
   "assist": {
@@ -73,24 +36,66 @@
           "level": "on",
           "options": {
             "groups": [
-              { "type": false, "source": ":NODE:" },
-              { "type": true, "source": ":NODE:" },
+              {
+                "type": false,
+                "source": ":NODE:"
+              },
+              {
+                "type": true,
+                "source": ":NODE:"
+              },
               ":BLANK_LINE:",
-              { "type": false, "source": ["next", "next/**"] },
-              { "type": true, "source": ["next", "next/**"] },
-              { "type": false, "source": ["react", "react/**", "react-*"] },
-              { "type": true, "source": ["react", "react/**", "react-*"] },
+              {
+                "type": false,
+                "source": ["next", "next/**"]
+              },
+              {
+                "type": true,
+                "source": ["next", "next/**"]
+              },
+              {
+                "type": false,
+                "source": ["react", "react/**", "react-*"]
+              },
+              {
+                "type": true,
+                "source": ["react", "react/**", "react-*"]
+              },
               ":BLANK_LINE:",
-              { "type": false, "source": ":PACKAGE:" },
-              { "type": false, "source": ":PACKAGE_WITH_PROTOCOL:" },
-              { "type": true, "source": ":PACKAGE:" },
-              { "type": true, "source": ":PACKAGE_WITH_PROTOCOL:" },
+              {
+                "type": false,
+                "source": ":PACKAGE:"
+              },
+              {
+                "type": false,
+                "source": ":PACKAGE_WITH_PROTOCOL:"
+              },
+              {
+                "type": true,
+                "source": ":PACKAGE:"
+              },
+              {
+                "type": true,
+                "source": ":PACKAGE_WITH_PROTOCOL:"
+              },
               ":BLANK_LINE:",
-              { "type": false, "source": ":ALIAS:" },
-              { "type": true, "source": ":ALIAS:" },
+              {
+                "type": false,
+                "source": ":ALIAS:"
+              },
+              {
+                "type": true,
+                "source": ":ALIAS:"
+              },
               ":BLANK_LINE:",
-              { "type": false, "source": ":PATH:" },
-              { "type": true, "source": ":PATH:" }
+              {
+                "type": false,
+                "source": ":PATH:"
+              },
+              {
+                "type": true,
+                "source": ":PATH:"
+              }
             ]
           }
         }
