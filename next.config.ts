@@ -4,6 +4,9 @@ import type { NextConfig } from "next";
 import "~/env/client";
 import "~/env/server";
 
+// Generate TypeScript types for public images
+import "./config/plugins/public-images";
+
 import { env } from "~/env/server";
 
 import { createSubdomainConfig } from "./config/ssl/next-subdomains";
