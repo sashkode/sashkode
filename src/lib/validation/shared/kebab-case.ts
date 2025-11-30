@@ -1,13 +1,13 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-import type { Never } from './never';
-import type { UppercaseLetter } from './regex-like';
+import type { Never } from "./never";
+import type { UppercaseLetter } from "./regex-like";
 
 /**
  * Type-level validation for kebab-case strings.
  * Provides compile-time feedback with descriptive error messages.
  */
-export type KebabCase<VariableName extends string, S extends string> = S extends ''
+export type KebabCase<VariableName extends string, S extends string> = S extends ""
   ? Never<`${VariableName} cannot be empty - must be in kebab-case format`>
   : S extends `${string}${UppercaseLetter}${string}`
     ? Never<`${VariableName} contains uppercase letters - kebab-case requires lowercase only`>
@@ -45,10 +45,12 @@ const kebabCaseRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const kebabCaseSchema = () =>
   z.string().refine(
     (val) => {
-      if (typeof val !== 'string') return false;
+      if (typeof val !== "string") {
+        return false;
+      }
       return kebabCaseRegex.test(val);
     },
     {
-      message: 'Must be kebab-case: lowercase letters and numbers only, separated by single hyphens (no leading, trailing, or consecutive hyphens)',
-    },
+      message: "Must be kebab-case: lowercase letters and numbers only, separated by single hyphens (no leading, trailing, or consecutive hyphens)",
+    }
   );

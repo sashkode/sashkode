@@ -1,15 +1,15 @@
-import 'server-only';
+import "server-only";
 
-import { ActionBindArgsValidationError, ActionMetadataValidationError, ActionOutputDataValidationError, createSafeActionClient } from 'next-safe-action';
-import { z } from 'zod';
+import { ActionBindArgsValidationError, ActionMetadataValidationError, ActionOutputDataValidationError, createSafeActionClient } from "next-safe-action";
+import { z } from "zod";
 
-import { Logger } from '~/lib/logging/server/logger';
-import { type KebabCase, kebabCaseSchema } from '~/lib/validation/shared/kebab-case';
+import { Logger } from "~/lib/logging/server/logger";
+import { type KebabCase, kebabCaseSchema } from "~/lib/validation/shared/kebab-case";
 
 /**
  * Default error message returned to clients when an unexpected server error occurs
  */
-const DEFAULT_SERVER_ERROR_MESSAGE = 'An unexpected error occurred. Please try again later.';
+const DEFAULT_SERVER_ERROR_MESSAGE = "An unexpected error occurred. Please try again later.";
 
 /**
  * HTTP error codes used throughout the application for client and server errors
@@ -38,7 +38,7 @@ const errorErrorCodes = {
  * Branded type for error codes to ensure type safety
  */
 type ErrorCode = (typeof errorErrorCodes)[keyof typeof errorErrorCodes] & {
-  _brand: 'ErrorCode';
+  _brand: "ErrorCode";
 };
 
 /**
@@ -60,9 +60,9 @@ export const ErrorCode = errorErrorCodes as Record<keyof typeof errorErrorCodes,
  * ```
  */
 export class ServerError extends Error {
-  public readonly code?: string;
-  public readonly errorCode: ErrorCode;
-  public readonly context?: Record<string, unknown>;
+  readonly code?: string;
+  readonly errorCode: ErrorCode;
+  readonly context?: Record<string, unknown>;
 
   constructor(message: string, errorCode?: ErrorCode);
   constructor(
@@ -70,14 +70,14 @@ export class ServerError extends Error {
     options?: {
       errorCode?: ErrorCode;
       context?: Record<string, unknown>;
-    },
+    }
   );
-  constructor(message: string, optionsOrErrorCode?: { errorCode?: ErrorCode; context?: Record<string, unknown> } | ErrorCode) {
-    super(message);
-    this.name = 'ServerError';
-    this.errorCode = (typeof optionsOrErrorCode === 'object' ? optionsOrErrorCode.errorCode : optionsOrErrorCode) ?? (500 as ErrorCode);
+  constructor(errorMessage: string, optionsOrErrorCode?: { errorCode?: ErrorCode; context?: Record<string, unknown> } | ErrorCode) {
+    super(errorMessage);
+    this.name = "ServerError";
+    this.errorCode = (typeof optionsOrErrorCode === "object" ? optionsOrErrorCode.errorCode : optionsOrErrorCode) ?? (500 as ErrorCode);
     this.code = Object.entries(errorErrorCodes).find(([_, value]) => value === this.errorCode)?.[0];
-    this.context = typeof optionsOrErrorCode === 'object' ? optionsOrErrorCode.context : undefined;
+    this.context = typeof optionsOrErrorCode === "object" ? optionsOrErrorCode.context : undefined;
 
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, ServerError);
@@ -98,8 +98,8 @@ const metadataSchema = z.object({
  * @template T - String literal type for the action name
  */
 type ActionMetadata<T extends string> = {
-  name: KebabCase<'name', T>;
-} & Omit<z.infer<typeof metadataSchema>, 'name'>;
+  name: KebabCase<"name", T>;
+} & Omit<z.infer<typeof metadataSchema>, "name">;
 
 /**
  * Creates a configured server action client with logging, error handling, and execution tracking
@@ -132,15 +132,15 @@ const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
       const { clientInput, ctx } = utils;
 
       // biome-ignore lint/suspicious/noExplicitAny: We know the ctx will have a logger, unless someone removes it from the context or we are throwing before the first middleware (e.g. during metadata validation)
-      const actionLogger = ((ctx as unknown as any).logger as ReturnType<(typeof Logger)['child']> | undefined) ?? Logger.child({ scope: 'SERVER_ACTION', topic: metadata.name });
+      const actionLogger = ((ctx as unknown as any).logger as ReturnType<(typeof Logger)["child"]> | undefined) ?? Logger.child({ scope: "SERVER_ACTION", topic: metadata.name });
 
       // Default to error logging and generic client message
       let logMethod = actionLogger.error;
       let clientMessage = DEFAULT_SERVER_ERROR_MESSAGE;
-      let serverMessage = 'Caught an unknown server error!';
+      let serverMessage = "Caught an unknown server error!";
       const data = {
         errorType: e.constructor.name,
-        clientInput: typeof clientInput === 'object' ? clientInput : { raw: clientInput },
+        clientInput: typeof clientInput === "object" ? clientInput : { raw: clientInput },
         stack: e.stack,
       } as Record<string, unknown>;
 
@@ -171,11 +171,11 @@ const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
       logMethod(serverMessage, data);
       return clientMessage;
     },
-    defaultValidationErrorsShape: 'flattened',
+    defaultValidationErrorsShape: "flattened",
   })
     .metadata(metadata as z.infer<typeof metadataSchema>)
     .use(({ next }) => {
-      const actionLogger = Logger.child({ scope: 'SERVER_ACTION', topic: metadata.name });
+      const actionLogger = Logger.child({ scope: "SERVER_ACTION", topic: metadata.name });
       return next({
         ctx: { logger: actionLogger },
       });
@@ -183,8 +183,8 @@ const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
     .use(async ({ ctx: { logger }, next, clientInput }) => {
       const startTime = Date.now();
 
-      logger.info('Starting execution!', {
-        clientInput: typeof clientInput === 'object' ? clientInput : { raw: clientInput },
+      logger.info("Starting execution!", {
+        clientInput: typeof clientInput === "object" ? clientInput : { raw: clientInput },
       });
 
       try {
@@ -192,22 +192,22 @@ const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
         const executionDuration = Date.now() - startTime;
 
         if (result.success) {
-          logger.info('Completed successfully!', {
+          logger.info("Completed successfully!", {
             data: result.data,
             executionDuration,
           });
         } else if (result.validationErrors) {
-          logger.error('Completed with validation errors!', {
+          logger.error("Completed with validation errors!", {
             validationErrors: result.validationErrors,
             executionDuration,
           });
         } else if (result.serverError) {
           if (result.serverError === DEFAULT_SERVER_ERROR_MESSAGE) {
-            logger.error('Completed with an unknown server error!', {
+            logger.error("Completed with an unknown server error!", {
               executionDuration,
             });
           } else {
-            logger.warn('Completed with a known server error!', {
+            logger.warn("Completed with a known server error!", {
               serverError: result.serverError,
               executionDuration,
             });
@@ -217,7 +217,7 @@ const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
         return result;
       } catch (error) {
         const executionDuration = Date.now() - startTime;
-        logger.error('Failed with an exception!', {
+        logger.error("Failed with an exception!", {
           executionDuration,
         });
         throw error;

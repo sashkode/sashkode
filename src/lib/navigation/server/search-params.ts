@@ -18,13 +18,13 @@
  * 3. Handle the discriminated union to render UI for success or validation errors
  */
 
-import type { SearchParams } from 'next/dist/server/request/search-params';
-import { cache } from 'react';
+import type { SearchParams } from "next/dist/server/request/search-params";
+import { cache } from "react";
 
-import { z } from 'zod';
+import { z } from "zod";
 
-import { Logger } from '~/lib/logging/server/logger';
-import type { Prettify } from '~/lib/utils/shared/prettify';
+import { Logger } from "~/lib/logging/server/logger";
+import type { Prettify } from "~/lib/utils/shared/prettify";
 
 /**
  * Shape of URL search params as provided by Next.js App Router.
@@ -41,7 +41,7 @@ export type NextSearchParams = Record<string, string | string[] | undefined>;
  *
  * @internal
  */
-type BuildTuple<Length extends number, T extends unknown[] = []> = T['length'] extends Length ? T : BuildTuple<Length, [unknown, ...T]>;
+type BuildTuple<Length extends number, T extends unknown[] = []> = T["length"] extends Length ? T : BuildTuple<Length, [unknown, ...T]>;
 
 /**
  * Type-level numeric predecessor for literal numbers.
@@ -50,7 +50,7 @@ type BuildTuple<Length extends number, T extends unknown[] = []> = T['length'] e
  * - Decrement<5> -> 4
  * - Works for any small numeric literal; recursion depth depends on TS limits.
  */
-export type Decrement<N extends number> = BuildTuple<N> extends [unknown, ...infer Rest] ? Rest['length'] : 0;
+export type Decrement<N extends number> = BuildTuple<N> extends [unknown, ...infer Rest] ? Rest["length"] : 0;
 
 /**
  * Result of parsing URL search parameters against a Zod schema.
@@ -95,6 +95,88 @@ export type SearchParamsResult<O extends z.ZodRawShape> =
     };
 
 /**
+ * Check if a string value represents a truthy boolean.
+ * @internal
+ */
+const isTruthyString = (value: string): boolean => {
+  const lowerValue = value.toLowerCase();
+  return lowerValue === "true" || lowerValue === "1" || lowerValue === "yes" || lowerValue === "y";
+};
+
+/**
+ * Coerce a value to a boolean based on common truthy string representations.
+ * @internal
+ */
+const coerceToBoolean = (value: unknown): boolean => {
+  if (typeof value === "string") {
+    return isTruthyString(value);
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => typeof item === "string" && isTruthyString(item));
+  }
+  return false;
+};
+
+/**
+ * Coerce a value to a number if possible.
+ * @internal
+ */
+const coerceToNumber = (value: unknown): number | undefined => {
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+  if (Array.isArray(value) && value.length === 1) {
+    const parsed = Number(value[0]);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+};
+
+/**
+ * Coerce a string value to match an enum value (case-insensitive).
+ * @internal
+ */
+const coerceToEnum = (value: unknown, enumValues: unknown[]): string | undefined => {
+  if (typeof value !== "string") {
+    return;
+  }
+  const lowerValue = value.toLowerCase();
+  return (enumValues as string[]).find((enumValue) => typeof enumValue === "string" && enumValue.toLowerCase() === lowerValue);
+};
+
+/**
+ * Process a single field based on its schema type.
+ * @internal
+ */
+const processField = (value: unknown, schemaField: { _def?: { typeName?: string; values?: unknown[] } }): unknown => {
+  const typeName = schemaField._def?.typeName;
+  if (!typeName) {
+    return value;
+  }
+
+  switch (typeName) {
+    case "ZodBoolean":
+      return coerceToBoolean(value);
+    case "ZodArray":
+      return Array.isArray(value) ? value : [value];
+    case "ZodNumber": {
+      const numValue = coerceToNumber(value);
+      return numValue !== undefined ? numValue : value;
+    }
+    case "ZodEnum": {
+      const enumValues = schemaField._def?.values;
+      if (Array.isArray(enumValues)) {
+        const matchedValue = coerceToEnum(value, enumValues);
+        return matchedValue !== undefined ? matchedValue : value;
+      }
+      return value;
+    }
+    default:
+      return value;
+  }
+};
+
+/**
  * Schema-aware pre-processing of raw URL parameters.
  *
  * URL values are strings (or string arrays). Before validating with Zod,
@@ -116,63 +198,28 @@ const processSearchParamsForSchema = (params: Record<string, unknown>, schema: z
   const processed = params;
 
   try {
-    const shape = schema.shape as unknown as Record<string, { _def?: { typeName?: string } }>;
+    const shape = schema.shape as unknown as Record<string, { _def?: { typeName?: string; values?: unknown[] } }>;
 
     for (const key in processed) {
-      if (Object.hasOwn(processed, key)) {
-        try {
-          const schemaField = shape[key];
-          if (!schemaField) continue;
+      if (!Object.hasOwn(processed, key)) {
+        continue;
+      }
 
-          const value = processed[key];
-          if (value === undefined || value === null) continue;
-          if (!schemaField._def?.typeName) continue;
+      try {
+        const schemaField = shape[key];
+        const value = processed[key];
 
-          if (schemaField._def.typeName === 'ZodBoolean') {
-            if (typeof value === 'string') {
-              const lowerValue = value.toLowerCase();
-              processed[key] = lowerValue === 'true' || lowerValue === '1' || lowerValue === 'yes' || lowerValue === 'y';
-            } else if (Array.isArray(value)) {
-              processed[key] = value.some((value) => typeof value === 'string' && (value.toLowerCase() === 'true' || value === '1' || value.toLowerCase() === 'yes' || value.toLowerCase() === 'y'));
-            }
-          } else if (schemaField._def.typeName === 'ZodArray') {
-            if (!Array.isArray(value)) {
-              processed[key] = [value];
-            }
-          } else if (schemaField._def.typeName === 'ZodNumber') {
-            if (typeof value === 'string') {
-              const parsed = Number(value);
-              if (!Number.isNaN(parsed)) {
-                processed[key] = parsed;
-              }
-            } else if (Array.isArray(value) && value.length === 1) {
-              const parsed = Number(value[0]);
-              if (!Number.isNaN(parsed)) {
-                processed[key] = parsed;
-              }
-            }
-          } else if (schemaField._def.typeName === 'ZodEnum') {
-            try {
-              const zodEnumDef = schemaField._def as { values?: unknown[] };
-              if (typeof value === 'string' && Array.isArray(zodEnumDef.values)) {
-                const enumValues = zodEnumDef.values as string[];
-                const lowerValue = value.toLowerCase();
-                const matchedValue = enumValues.find((enumValue) => typeof enumValue === 'string' && enumValue.toLowerCase() === lowerValue);
-                if (matchedValue) {
-                  processed[key] = matchedValue;
-                }
-              }
-            } catch {
-              // ignore enum conversion failures
-            }
-          }
-        } catch (error) {
-          Logger.warn(`Error processing field "${key}":`, { error });
+        if (!schemaField || value === undefined || value === null) {
+          continue;
         }
+
+        processed[key] = processField(value, schemaField);
+      } catch (error) {
+        Logger.warn(`Error processing field "${key}":`, { error });
       }
     }
   } catch (error) {
-    Logger.warn('Could not process search params with schema:', { error });
+    Logger.warn("Could not process search params with schema:", { error });
   }
 
   return processed;
@@ -280,7 +327,7 @@ export const parseSearchParams = cache(async <S extends z.ZodTypeAny>(searchPara
     inputObjectSchema = current as z.ZodObject<z.ZodRawShape>;
   } else {
     // Defensive: the function is typed to only allow these two, so this should never happen
-    throw new Error('Unsupported schema type passed to `parseSearchParams`');
+    throw new Error("Unsupported schema type passed to `parseSearchParams`");
   }
 
   // Pre-process using the input object schema's shape

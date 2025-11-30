@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useSearchParams as useNextSearchParams, usePathname, useRouter } from 'next/navigation';
-import { createContext, type ReactNode, use, useContext } from 'react';
+import { useSearchParams as useNextSearchParams, usePathname, useRouter } from "next/navigation";
+import { createContext, type ReactNode, use, useContext } from "react";
 
-import type z from 'zod';
+import type z from "zod";
 
-import type { AnyPage, ExtractPageHasFallback, ExtractPageName, ExtractPagePath, ExtractPageSchema, NextSearchParams, SearchParamsError } from '~/lib/navigation/server/next-safe-page';
-import type { SearchParamsResultForSchema } from '~/lib/navigation/server/search-params';
-import type { Prettify } from '~/lib/utils/shared/prettify';
+import type { AnyPage, ExtractPageHasFallback, ExtractPageName, ExtractPagePath, ExtractPageSchema, NextSearchParams, SearchParamsError } from "~/lib/navigation/server/next-safe-page";
+import type { SearchParamsResultForSchema } from "~/lib/navigation/server/search-params";
+import type { Prettify } from "~/lib/utils/shared/prettify";
 
 /**
  * Mode for combining search params during navigation.
@@ -16,7 +16,7 @@ import type { Prettify } from '~/lib/utils/shared/prettify';
  * - `merge`: Override existing keys with values from params; for repeated keys (arrays), the full set is replaced.
  * - `merge-arrays`: Append values for keys from params to any existing values (array-concat semantics).
  */
-export type SearchParamsNavigationMode = 'merge' | 'merge-arrays' | 'replace';
+export type SearchParamsNavigationMode = "merge" | "merge-arrays" | "replace";
 
 /**
  * Input params type for navigation functions.
@@ -133,12 +133,44 @@ const PageContext = createContext<InternalPageContextValue<any, any, any, any> |
 // biome-ignore lint/suspicious/noExplicitAny: Allow any for generic context
 const PageFallbackContext = createContext<InternalPageFallbackContextValue<any, any, any> | undefined>(undefined);
 
-export const PageContextProvider = <Path extends string, Name extends string, Schema extends z.ZodTypeAny | undefined = undefined, HasFallback extends boolean = false>({ value, children }: { value: InternalPageContextValue<Path, Name, Schema, HasFallback>; children: ReactNode }) => {
-  return <PageContext.Provider value={value}>{children}</PageContext.Provider>;
+export const PageContextProvider = <Path extends string, Name extends string, Schema extends z.ZodTypeAny | undefined = undefined, HasFallback extends boolean = false>({ value, children }: { value: InternalPageContextValue<Path, Name, Schema, HasFallback>; children: ReactNode }) => (
+  <PageContext.Provider value={value}>{children}</PageContext.Provider>
+);
+
+export const PageFallbackContextProvider = <Path extends string, Name extends string, Schema extends z.ZodTypeAny = z.ZodTypeAny>({ value, children }: { value: InternalPageFallbackContextValue<Path, Name, Schema>; children: ReactNode }) => (
+  <PageFallbackContext.Provider value={value}>{children}</PageFallbackContext.Provider>
+);
+
+type SearchParamsInput = string[][] | Record<string, string> | string | URLSearchParams;
+
+/**
+ * Merge new params into current params with array-concat semantics.
+ */
+const mergeArrayParams = (currentParams: URLSearchParams, newParams: URLSearchParams): void => {
+  const keys = new Set<string>();
+  for (const [, key] of newParams) {
+    keys.add(key);
+  }
+  for (const key of keys) {
+    for (const value of currentParams.getAll(key)) {
+      if (value) {
+        currentParams.append(key, value);
+      }
+    }
+  }
 };
 
-export const PageFallbackContextProvider = <Path extends string, Name extends string, Schema extends z.ZodTypeAny = z.ZodTypeAny>({ value, children }: { value: InternalPageFallbackContextValue<Path, Name, Schema>; children: ReactNode }) => {
-  return <PageFallbackContext.Provider value={value}>{children}</PageFallbackContext.Provider>;
+/**
+ * Merge new params into current params, replacing existing keys.
+ */
+const mergeParams = (currentParams: URLSearchParams, newParams: URLSearchParams): void => {
+  for (const [key, value] of newParams) {
+    if (value) {
+      currentParams.set(key, value);
+    } else {
+      currentParams.delete(key);
+    }
+  }
 };
 
 /**
@@ -155,40 +187,31 @@ const useSearchParamsNavigation = (): SearchParamsNavigation<any> => {
   const pathname = usePathname();
   const searchParams = useNextSearchParams();
 
-  const buildSearchParamsUrl = (params: string[][] | Record<string, string> | string | URLSearchParams, mode: SearchParamsNavigationMode = 'merge') => {
-    // Clone ReadonlyURLSearchParams safely via its string representation.
-    const currentParams = new URLSearchParams(searchParams.toString());
-    const newParams = new URLSearchParams(params as string[][] | Record<string, string> | string | URLSearchParams);
-    if (mode === 'replace') {
+  const buildSearchParamsUrl = (params: SearchParamsInput, mode: SearchParamsNavigationMode = "merge") => {
+    const newParams = new URLSearchParams(params as SearchParamsInput);
+
+    if (mode === "replace") {
       return `${pathname}?${newParams.toString()}`;
     }
-    if (mode === 'merge-arrays') {
-      const keys = new Set<string>();
-      newParams.forEach((_, key) => {
-        keys.add(key);
-      });
-      keys.forEach((key) => {
-        // Append without deleting existing values
-        newParams.getAll(key).forEach((value) => {
-          if (value) currentParams.append(key, value);
-        });
-      });
-      return `${pathname}?${currentParams.toString()}`;
+
+    // Clone ReadonlyURLSearchParams safely via its string representation.
+    const currentParams = new URLSearchParams(searchParams.toString());
+
+    if (mode === "merge-arrays") {
+      mergeArrayParams(currentParams, newParams);
+    } else {
+      mergeParams(currentParams, newParams);
     }
-    // mode === 'merge'
-    newParams.forEach((value, key) => {
-      if (value) currentParams.set(key, value);
-      else currentParams.delete(key);
-    });
+
     return `${pathname}?${currentParams.toString()}`;
   };
 
-  const pushSearchParams = (params: string[][] | Record<string, string> | string | URLSearchParams, mode: SearchParamsNavigationMode = 'merge') => {
+  const pushSearchParams = (params: SearchParamsInput, mode: SearchParamsNavigationMode = "merge") => {
     const url = buildSearchParamsUrl(params, mode);
     router.push(url as Parameters<typeof router.push>[0]);
   };
 
-  const replaceSearchParams = (params: string[][] | Record<string, string> | string | URLSearchParams, mode: SearchParamsNavigationMode = 'merge') => {
+  const replaceSearchParams = (params: SearchParamsInput, mode: SearchParamsNavigationMode = "merge") => {
     const url = buildSearchParamsUrl(params, mode);
     router.replace(url as Parameters<typeof router.replace>[0]);
   };
@@ -218,7 +241,7 @@ export const usePage = <Page extends AnyPage>(expectedName?: ExtractPageName<Pag
   const context = use(PageContext);
   const navigation = useSearchParamsNavigation();
   if (context === undefined) {
-    throw new Error('`usePage` must be used within a `PageContextProvider`. If you are in a validation error fallback, use `usePageFallback` or `usePageContext` instead.');
+    throw new Error("`usePage` must be used within a `PageContextProvider`. If you are in a validation error fallback, use `usePageFallback` or `usePageContext` instead.");
   }
   if (expectedName !== undefined && context.name !== expectedName) {
     throw new Error(`\`usePage\` expected page '${expectedName}' but was used in page '${context.name}'.`);
@@ -244,7 +267,7 @@ export const usePageFallback = <Page extends AnyPage>(expectedName?: ExtractPage
   const context = use(PageFallbackContext);
   const navigation = useSearchParamsNavigation();
   if (context === undefined) {
-    throw new Error('`usePageFallback` must be used within a `PageFallbackContextProvider`. If you are in a page component, use `usePage` or `usePageContext` instead.');
+    throw new Error("`usePageFallback` must be used within a `PageFallbackContextProvider`. If you are in a page component, use `usePage` or `usePageContext` instead.");
   }
   if (expectedName !== undefined && context.name !== expectedName) {
     throw new Error(`\`usePageFallback\` expected page '${expectedName}' but was used in page '${context.name}'.`);
@@ -322,5 +345,5 @@ export const usePageContext = <Page extends AnyPage>(expectedName?: ExtractPageN
     };
   }
 
-  throw new Error('`usePageContext` must be used within a page component or its validation error fallback.');
+  throw new Error("`usePageContext` must be used within a page component or its validation error fallback.");
 };

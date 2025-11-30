@@ -1,28 +1,28 @@
-import 'server-only';
+import "server-only";
 
-import { customAlphabet } from 'nanoid';
-import pino from 'pino';
-import pinoPretty from 'pino-pretty';
+import { customAlphabet } from "nanoid";
+import pino from "pino";
+import pinoPretty from "pino-pretty";
 
-import { env } from '~/env/server';
-import type { KebabCase } from '~/lib/validation/shared/kebab-case';
-import type { ScreamingSnakeCase } from '~/lib/validation/shared/screaming-snake-case';
+import { env } from "~/env/server";
+import type { KebabCase } from "~/lib/validation/shared/kebab-case";
+import type { ScreamingSnakeCase } from "~/lib/validation/shared/screaming-snake-case";
 
 /**
  * Simple `nanoid` generator for unique request IDs with the base58 alphabet (no easily confused characters)
  */
-const generateId = customAlphabet('abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789', 22);
+const generateId = customAlphabet("abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789", 22);
 
 const createPinoLogger = () => {
   const isLocal = !env.VERCEL_ENV;
-  const isDevelopment = env.VERCEL_ENV ? ['development', 'preview'].includes(env.VERCEL_ENV) : true;
+  const isDevelopment = env.VERCEL_ENV ? ["development", "preview"].includes(env.VERCEL_ENV) : true;
 
   // Create pretty stream in development with custom formatting
   const prettyStream = isLocal
     ? pinoPretty({
         colorize: true,
-        ignore: 'pid,hostname',
-        translateTime: 'SYS:HH:MM:ss.l',
+        ignore: "pid,hostname",
+        translateTime: "SYS:HH:MM:ss.l",
         singleLine: true,
         messageFormat: (log, messageKey, _levelLabel, { colors }) => {
           let message = log[messageKey];
@@ -30,14 +30,17 @@ const createPinoLogger = () => {
           const scope = log.scope as string | undefined;
           const topic = log.topic as string | undefined;
 
-          if ('scope' in log) delete log.scope;
-          if ('topic' in log) delete log.topic;
+          // Remove scope/topic from log object to avoid duplication
+          log.scope = undefined;
+          log.topic = undefined;
 
           // Logs with scope/topic
           if (scope) {
             let formattedMessage = `(${scope}`;
-            if (topic) formattedMessage += `:${colors.magenta(topic)}`;
-            formattedMessage += ')';
+            if (topic) {
+              formattedMessage += `:${colors.magenta(topic)}`;
+            }
+            formattedMessage += ")";
             message = `${colors.white(`${formattedMessage}:`)} ${log[messageKey]}`;
           }
 
@@ -48,7 +51,7 @@ const createPinoLogger = () => {
 
   const pinoLoggerInstance = pino(
     {
-      level: isDevelopment ? 'debug' : 'info',
+      level: isDevelopment ? "debug" : "info",
 
       // Base fields for all logs
       base: {},
@@ -63,7 +66,7 @@ const createPinoLogger = () => {
         res: pino.stdSerializers.res,
       },
     },
-    prettyStream,
+    prettyStream
   );
 
   return pinoLoggerInstance;
@@ -77,8 +80,8 @@ type LogObject<Scope extends string, Topic extends string> = {
   ignore?: string[];
 } & (
   | {
-      scope: ScreamingSnakeCase<'scope', Scope>;
-      topic?: KebabCase<'topic', Topic>;
+      scope: ScreamingSnakeCase<"scope", Scope>;
+      topic?: KebabCase<"topic", Topic>;
     }
   | {
       scope?: undefined;
@@ -129,15 +132,15 @@ const createLogger = (): Logger => {
       const childLogger = pinoLoggerInstance.child(
         Object.assign(obj, {
           correlationId: `corr_${generateId()}`,
-        }),
+        })
       );
       return {
-        trace: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.trace(obj ?? {}, msg),
-        debug: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.debug(obj ?? {}, msg),
-        info: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.info(obj ?? {}, msg),
-        warn: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.warn(obj ?? {}, msg),
-        error: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.error(obj ?? {}, msg),
-        fatal: <Scope extends string, Topic extends string>(msg: string, obj?: LogObject<Scope, Topic>) => childLogger.fatal(obj ?? {}, msg),
+        trace: <ChildScope extends string, ChildTopic extends string>(msg: string, childObj?: LogObject<ChildScope, ChildTopic>) => childLogger.trace(childObj ?? {}, msg),
+        debug: <ChildScope extends string, ChildTopic extends string>(msg: string, childObj?: LogObject<ChildScope, ChildTopic>) => childLogger.debug(childObj ?? {}, msg),
+        info: <ChildScope extends string, ChildTopic extends string>(msg: string, childObj?: LogObject<ChildScope, ChildTopic>) => childLogger.info(childObj ?? {}, msg),
+        warn: <ChildScope extends string, ChildTopic extends string>(msg: string, childObj?: LogObject<ChildScope, ChildTopic>) => childLogger.warn(childObj ?? {}, msg),
+        error: <ChildScope extends string, ChildTopic extends string>(msg: string, childObj?: LogObject<ChildScope, ChildTopic>) => childLogger.error(childObj ?? {}, msg),
+        fatal: <ChildScope extends string, ChildTopic extends string>(msg: string, childObj?: LogObject<ChildScope, ChildTopic>) => childLogger.fatal(childObj ?? {}, msg),
       };
     },
   };

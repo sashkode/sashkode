@@ -1,13 +1,13 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-import type { Never } from './never';
-import type { LowercaseLetter } from './regex-like';
+import type { Never } from "./never";
+import type { LowercaseLetter } from "./regex-like";
 
 /**
  * Type-level validation for SCREAMING_SNAKE_CASE strings.
  * Provides compile-time feedback with descriptive error messages.
  */
-export type ScreamingSnakeCase<VariableName extends string, S extends string> = S extends ''
+export type ScreamingSnakeCase<VariableName extends string, S extends string> = S extends ""
   ? Never<`${VariableName} cannot be empty - must be in SCREAMING_SNAKE_CASE format`>
   : S extends `${string}${LowercaseLetter}${string}`
     ? Never<`${VariableName} contains lowercase letters - SCREAMING_SNAKE_CASE requires uppercase only`>
@@ -45,10 +45,12 @@ const screamingSnakeCaseRegex = /^[A-Z0-9]+(?:_[A-Z0-9]+)*$/;
 export const screamingSnakeCaseSchema = () =>
   z.string().refine(
     (val) => {
-      if (typeof val !== 'string') return false;
+      if (typeof val !== "string") {
+        return false;
+      }
       return screamingSnakeCaseRegex.test(val);
     },
     {
-      message: 'Must be SCREAMING_SNAKE_CASE: uppercase letters and numbers only, separated by single underscores (no leading, trailing, or consecutive underscores)',
-    },
+      message: "Must be SCREAMING_SNAKE_CASE: uppercase letters and numbers only, separated by single underscores (no leading, trailing, or consecutive underscores)",
+    }
   );

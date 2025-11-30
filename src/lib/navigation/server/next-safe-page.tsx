@@ -1,22 +1,22 @@
-import type { AppRoutes } from 'next/types/routes';
-import type { ReactElement } from 'react';
+import type { AppRoutes } from "next/types/routes";
+import type { ReactElement } from "react";
 
-import z from 'zod';
+import z from "zod";
 
-import { Logger } from '~/lib/logging/server/logger';
-import { PageContextProvider, type PageContextValue, PageFallbackContextProvider } from '~/lib/navigation/client/hooks/use-page';
-import type { Prettify } from '~/lib/utils/shared/prettify';
-import type { KebabCase } from '~/lib/validation/shared/kebab-case';
+import { Logger } from "~/lib/logging/server/logger";
+import { PageContextProvider, type PageContextValue, PageFallbackContextProvider } from "~/lib/navigation/client/hooks/use-page";
+import type { Prettify } from "~/lib/utils/shared/prettify";
+import type { KebabCase } from "~/lib/validation/shared/kebab-case";
 
-import { type InputObjectShape, parseSearchParams, type SearchParamsResultForSchema } from './search-params';
+import { type InputObjectShape, parseSearchParams, type SearchParamsResultForSchema } from "./search-params";
 
 export type NextSearchParams = Record<string, string | string[] | undefined>;
 
 type PathParams = Record<string, string>;
 
-export type SearchParamsError<S> = Extract<SearchParamsResultForSchema<S>, { success: false }>['errors'];
+export type SearchParamsError<S> = Extract<SearchParamsResultForSchema<S>, { success: false }>["errors"];
 
-type ValidationErrorFallback<Schema extends z.ZodTypeAny, Path extends AppRoutes> = (props: { errors: SearchParamsError<Schema>; getUnsafeSearchParams: () => Promise<NextSearchParams>; getPathParams: () => PageProps<Path>['params']; logger: ReturnType<typeof Logger.child> }) => Promise<ReactElement> | ReactElement;
+type ValidationErrorFallback<Schema extends z.ZodTypeAny, Path extends AppRoutes> = (props: { errors: SearchParamsError<Schema>; getUnsafeSearchParams: () => Promise<NextSearchParams>; getPathParams: () => PageProps<Path>["params"]; logger: ReturnType<typeof Logger.child> }) => Promise<ReactElement> | ReactElement;
 
 // The only props Next.js App Router pages receive
 type NextPageProps = {
@@ -79,7 +79,7 @@ type EnhancedProps<Schema extends AcceptableSchema | undefined, Path extends App
    * Retrieves the route parameters (e.g., `slug` from `/blog/[slug]`).
    * These are the dynamic segments of the URL path.
    */
-  getPathParams: () => PageProps<Path>['params'];
+  getPathParams: () => PageProps<Path>["params"];
 } & (InputObjectShape<Schema> extends undefined
   ? { getUnsafeSearchParams: () => Promise<NextSearchParams> }
   : HasErrorHandler extends true
@@ -114,12 +114,12 @@ type GetSchemaType<T> = T extends z.ZodObject<z.ZodRawShape> ? T : T extends z.Z
  * accessors to the page component.
  */
 class PageClient<Route extends AppRoutes, Name extends string, Schema extends AcceptableSchema | undefined = undefined, HasValidationErrorFallback extends boolean = false> {
-  private path: Route;
-  private schema: Schema = undefined as Schema;
-  private validationErrorFallback: ValidationErrorFallback<Schema extends z.ZodTypeAny ? Schema : never, Route> | undefined;
-  private name: Name;
+  private readonly path: Route;
+  private readonly schema: Schema = undefined as Schema;
+  private readonly validationErrorFallback: ValidationErrorFallback<Schema extends z.ZodTypeAny ? Schema : never, Route> | undefined;
+  private readonly name: Name;
 
-  constructor(path: Route, name: KebabCase<'name', Name>) {
+  constructor(path: Route, name: KebabCase<"name", Name>) {
     this.path = path;
     this.name = name as Name;
   }
@@ -190,12 +190,12 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
     // Cast is necessary because PageFn uses a branded type for type metadata extraction
     // that doesn't exist at runtime - the actual function signature matches what Next.js expects
     const PageComponent = ((props: NextPageProps) => {
-      const logger = Logger.child({ scope: 'PAGE', topic: this.name as string });
+      const logger = Logger.child({ scope: "PAGE", topic: this.name as string });
 
-      logger.info('Rendering page');
+      logger.info("Rendering page");
 
       const enhancedProps = {
-        getPathParams: async () => props.params as PageProps<Route>['params'],
+        getPathParams: async () => props.params as PageProps<Route>["params"],
         logger,
       } as Prettify<EnhancedProps<Schema, Route, HasValidationErrorFallback>>;
 
@@ -206,7 +206,7 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
         return (async () => {
           const result = await parseSearchParams(props.searchParams, schema);
           if (!result.success) {
-            logger.warn('Search params validation failed', { errors: result.errors });
+            logger.warn("Search params validation failed", { errors: result.errors });
             return (
               <PageFallbackContextProvider<Route, Name, z.ZodTypeAny>
                 value={{
@@ -219,14 +219,14 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
                   await validationErrorFallback({
                     errors: result.errors as SearchParamsError<Schema>,
                     getUnsafeSearchParams: async () => props.searchParams,
-                    getPathParams: async () => props.params as PageProps<Route>['params'],
+                    getPathParams: async () => props.params as PageProps<Route>["params"],
                     logger,
                   })
                 }
               </PageFallbackContextProvider>
             );
           }
-          logger.info('Search params validation successful', { searchParams: result.searchParams });
+          logger.info("Search params validation successful", { searchParams: result.searchParams });
           Object.assign(enhancedProps, {
             getSearchParams: async () => result.searchParams,
           });
@@ -252,9 +252,9 @@ class PageClient<Route extends AppRoutes, Name extends string, Schema extends Ac
         return (async () => {
           const result = await parseSearchParams(props.searchParams, schema);
           if (result.success) {
-            logger.info('Search params validation successful', { searchParams: result.searchParams });
+            logger.info("Search params validation successful", { searchParams: result.searchParams });
           } else {
-            logger.warn('Search params validation failed', { errors: result.errors });
+            logger.warn("Search params validation failed", { errors: result.errors });
           }
           Object.assign(enhancedProps, {
             parseSearchParams: async () => result,
@@ -362,7 +362,7 @@ export const Page = {
    * @param options.path - The route path (e.g., '/blog/[slug]'). Must match a valid route in your application.
    * @param options.name - A unique name for the page, used for debugging or identification.
    */
-  create: <Route extends AppRoutes, Name extends string>({ path, name }: { path: Route; name: KebabCase<'name', Name> }) => new PageClient(path, name),
+  create: <Route extends AppRoutes, Name extends string>({ path, name }: { path: Route; name: KebabCase<"name", Name> }) => new PageClient(path, name),
 };
 
 export const createSafePage = Page.create;
