@@ -1,8 +1,8 @@
 import Image from "next/image";
 
-import { WavyBackground } from "~/lib/home/client/components/wavy-background";
-import { SubdomainLink } from "~/lib/navigation/client/components/subdomain-link";
-import { Page } from "~/lib/navigation/server/next-safe-page";
+import { WavyBackground } from "~/features/home/client/components/wavy-background";
+import { SubdomainLink } from "~/platform/client/components/subdomain-link";
+import { Page } from "~/platform/server/safe-page";
 
 export default Page.create({
   path: "/root",

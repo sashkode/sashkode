@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { createNoise3D } from "simplex-noise";
 
-import { cn } from "~/lib/design-system/shared/utils";
+import { cn } from "~/ui/shared/utils";
 
 const WAVE_COLORS = ["#ff6b7a", "#f8fef4", "#bde8ec", "#6fa3c9", "#4a7ba7"];
 const WAVE_COUNT = 5;

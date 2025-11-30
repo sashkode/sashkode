@@ -57,7 +57,7 @@ function formatMessage(messages: string[], error: Error | null): string {
 }
 
 export async function register() {
-  const { Logger } = await import("~/lib/logging/server/logger");
+  const { Logger } = await import("~/platform/server/logger");
 
   const createConsoleMethod = (method: "error" | "info" | "warn" | "debug") => {
     return (...args: unknown[]) => {

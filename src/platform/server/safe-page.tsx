@@ -3,10 +3,10 @@ import type { ReactElement } from "react";
 
 import z from "zod";
 
-import { Logger } from "~/lib/logging/server/logger";
-import { PageContextProvider, type PageContextValue, PageFallbackContextProvider } from "~/lib/navigation/client/hooks/use-page";
-import type { Prettify } from "~/lib/utils/shared/prettify";
-import type { KebabCase } from "~/lib/validation/shared/kebab-case";
+import { PageContextProvider, type PageContextValue, PageFallbackContextProvider } from "~/platform/client/hooks/use-page";
+import { Logger } from "~/platform/server/logger";
+import type { KebabCase } from "~/utils/shared/kebab-case";
+import type { Prettify } from "~/utils/shared/prettify";
 
 import { type InputObjectShape, parseSearchParams, type SearchParamsResultForSchema } from "./search-params";
 

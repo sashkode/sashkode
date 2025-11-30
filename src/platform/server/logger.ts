@@ -5,8 +5,8 @@ import pino from "pino";
 import pinoPretty from "pino-pretty";
 
 import { env } from "~/env/server";
-import type { KebabCase } from "~/lib/validation/shared/kebab-case";
-import type { ScreamingSnakeCase } from "~/lib/validation/shared/screaming-snake-case";
+import type { KebabCase } from "~/utils/shared/kebab-case";
+import type { ScreamingSnakeCase } from "~/utils/shared/screaming-snake-case";
 
 /**
  * Simple `nanoid` generator for unique request IDs with the base58 alphabet (no easily confused characters)

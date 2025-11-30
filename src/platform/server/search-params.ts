@@ -23,8 +23,8 @@ import { cache } from "react";
 
 import { z } from "zod";
 
-import { Logger } from "~/lib/logging/server/logger";
-import type { Prettify } from "~/lib/utils/shared/prettify";
+import { Logger } from "~/platform/server/logger";
+import type { Prettify } from "~/utils/shared/prettify";
 
 /**
  * Shape of URL search params as provided by Next.js App Router.

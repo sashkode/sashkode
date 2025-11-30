@@ -5,9 +5,9 @@ import { createContext, type ReactNode, use, useContext } from "react";
 
 import type z from "zod";
 
-import type { AnyPage, ExtractPageHasFallback, ExtractPageName, ExtractPagePath, ExtractPageSchema, NextSearchParams, SearchParamsError } from "~/lib/navigation/server/next-safe-page";
-import type { SearchParamsResultForSchema } from "~/lib/navigation/server/search-params";
-import type { Prettify } from "~/lib/utils/shared/prettify";
+import type { AnyPage, ExtractPageHasFallback, ExtractPageName, ExtractPagePath, ExtractPageSchema, NextSearchParams, SearchParamsError } from "~/platform/server/safe-page";
+import type { SearchParamsResultForSchema } from "~/platform/server/search-params";
+import type { Prettify } from "~/utils/shared/prettify";
 
 /**
  * Mode for combining search params during navigation.

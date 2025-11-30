@@ -2,8 +2,8 @@ import Image from "next/image";
 
 import z from "zod";
 
-import { SubdomainLink } from "~/lib/navigation/client/components/subdomain-link";
-import { Page } from "~/lib/navigation/server/next-safe-page";
+import { SubdomainLink } from "~/platform/client/components/subdomain-link";
+import { Page } from "~/platform/server/safe-page";
 
 const SubdomainPageLayout = ({ children }: { children: React.ReactNode }) => (
   <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
