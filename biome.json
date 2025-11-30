@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "extends": ["ultracite/core", "ultracite/react", "ultracite/next"],
+  "extends": [
+    "./config/biome/core/biome.jsonc",
+    "./config/biome/react/biome.jsonc",
+    "./config/biome/next/biome.jsonc"
+  ],
   "vcs": {
     "enabled": true,
     "clientKind": "git",

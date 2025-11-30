@@ -31,8 +31,14 @@ const createPinoLogger = () => {
           const topic = log.topic as string | undefined;
 
           // Remove scope/topic from log object to avoid duplication
-          log.scope = undefined;
-          log.topic = undefined;
+          if ("scope" in log) {
+            // biome-ignore lint/performance/noDelete: We want to remove these keys for cleaner logging (no performance concern in dev mode)
+            delete log.scope;
+          }
+          if ("topic" in log) {
+            // biome-ignore lint/performance/noDelete: We want to remove these keys for cleaner logging (no performance concern in dev mode)
+            delete log.topic;
+          }
 
           // Logs with scope/topic
           if (scope) {

@@ -35,5 +35,23 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "editor.formatOnPaste": true,
   "emmet.showExpandedAbbreviation": "never",
-  "cSpell.words": ["noopener", "nqry", "ultracite"]
+  "cSpell.words": [
+    "Activedescendant",
+    "Approximative",
+    "Autofocus",
+    "Backrefs",
+    "codegen",
+    "Filenaming",
+    "Focusable",
+    "Instantiator",
+    "Misrefactored",
+    "Noninteractive",
+    "Nonoctal",
+    "noopener",
+    "nqry",
+    "Polyfillio",
+    "Shouty",
+    "Tabindex",
+    "ultracite"
+  ]
 }
