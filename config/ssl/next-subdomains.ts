@@ -93,7 +93,7 @@ export const createSubdomainConfig = (env: VercelEnv, customDomains: string[] = 
   const rootDomain = env.VERCEL_ENV ? `(${env.VERCEL_URL}|${env.VERCEL_BRANCH_URL}|${env.VERCEL_PROJECT_PRODUCTION_URL}|${customDomains.join("|")})` : "app.localhost";
 
   // biome-ignore lint/style/noProcessEnv: Required to detect dev mode and SSL mode
-  const lifecycleEvent = process.env.npm_lifecycle_event;
+  const lifecycleEvent = process.env["npm_lifecycle_event"];
   const isDev = lifecycleEvent ? ["dev", "dev:ssl"].includes(lifecycleEvent) : false;
   const isDevSSL = lifecycleEvent === "dev:ssl";
 

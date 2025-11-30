@@ -60,9 +60,9 @@ export const ErrorCode = errorErrorCodes as Record<keyof typeof errorErrorCodes,
  * ```
  */
 export class ServerError extends Error {
-  readonly code?: string;
+  readonly code?: string | undefined;
   readonly errorCode: ErrorCode;
-  readonly context?: Record<string, unknown>;
+  readonly context?: Record<string, unknown> | undefined;
 
   constructor(message: string, errorCode?: ErrorCode);
   constructor(
@@ -132,7 +132,7 @@ const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
       const { clientInput, ctx } = utils;
 
       // biome-ignore lint/suspicious/noExplicitAny: We know the ctx will have a logger, unless someone removes it from the context or we are throwing before the first middleware (e.g. during metadata validation)
-      const actionLogger = ((ctx as unknown as any).logger as ReturnType<(typeof Logger)["child"]> | undefined) ?? Logger.child({ scope: "SERVER_ACTION", topic: metadata.name });
+      const actionLogger = ((ctx as unknown as any).logger as ReturnType<(typeof Logger)["child"]> | undefined) ?? Logger.child({ scope: "SERVER_ACTION", topic: metadata.name as string });
 
       // Default to error logging and generic client message
       let logMethod = actionLogger.error;
@@ -175,7 +175,7 @@ const createServerAction = <T extends string>(metadata: ActionMetadata<T>) =>
   })
     .metadata(metadata as z.infer<typeof metadataSchema>)
     .use(({ next }) => {
-      const actionLogger = Logger.child({ scope: "SERVER_ACTION", topic: metadata.name });
+      const actionLogger = Logger.child({ scope: "SERVER_ACTION", topic: metadata.name as string });
       return next({
         ctx: { logger: actionLogger },
       });

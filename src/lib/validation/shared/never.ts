@@ -31,5 +31,4 @@
  * It works by creating an impossible type intersection that triggers
  * TypeScript's type checker with a custom error message.
  */
-// biome-ignore lint/correctness/noUnusedVariables: Need the unused type parameter for displaying the error message. Cannot be used for the `_typeError` property due to types conflicting when composing
-export type Never<TypeError extends string> = { _typeError: string };
+export type Never<TypeError extends string> = { _typeError: string & TypeError };
