@@ -13,9 +13,8 @@ const { rewrites, redirects, allowedDevOrigins } = createSubdomainConfig(env, ["
 const nextConfig: NextConfig = {
   reactCompiler: true,
   typedRoutes: true,
-  logging: {
-    incomingRequests: false,
-  },
+  logging: { incomingRequests: false },
+  serverExternalPackages: ["pino"],
   allowedDevOrigins,
   rewrites,
   redirects,
