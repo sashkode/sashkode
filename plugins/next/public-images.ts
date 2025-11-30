@@ -25,7 +25,7 @@
  *
  * Integration:
  * Import this plugin in next.config.ts to run on every dev/build:
- * import "./config/plugins/public-images";
+ * import "./plugins/next/public-images";
  */
 
 import fs from "node:fs";

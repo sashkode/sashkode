@@ -5,7 +5,7 @@ import "~/env/client";
 import "~/env/server";
 
 // Generate TypeScript types for public images
-import "./config/plugins/public-images";
+import "./plugins/next/public-images";
 
 import { env } from "~/env/server";
 
