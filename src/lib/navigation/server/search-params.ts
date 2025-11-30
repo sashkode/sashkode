@@ -130,6 +130,7 @@ const coerceToNumber = (value: unknown): number | undefined => {
     const parsed = Number(value[0]);
     return Number.isNaN(parsed) ? undefined : parsed;
   }
+  return;
 };
 
 /**

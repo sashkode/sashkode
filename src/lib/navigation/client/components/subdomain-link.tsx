@@ -99,7 +99,7 @@ export function SubdomainLink<Subdomain extends string | undefined = undefined, 
   }, [subdomain, pathname, params, originalPrefetch]);
 
   return (
-    <Link href={computedHref as ComponentProps<typeof Link>["href"]} prefetch={prefetch} {...props}>
+    <Link href={computedHref as ComponentProps<typeof Link>["href"]} prefetch={prefetch ?? null} {...(props as Omit<ComponentProps<typeof Link>, "href" | "prefetch">)}>
       {children}
     </Link>
   );

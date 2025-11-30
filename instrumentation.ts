@@ -77,7 +77,7 @@ export async function register() {
   };
 
   // biome-ignore lint/style/noProcessEnv: Required to detect runtime in instrumentation.ts
-  if (process.env.NEXT_RUNTIME === "nodejs") {
+  if (process.env["NEXT_RUNTIME"] === "nodejs") {
     console.error = createConsoleMethod("error");
     console.log = createConsoleMethod("info" /* default log maps to info */);
     console.info = createConsoleMethod("info");
