@@ -148,11 +148,11 @@ type SearchParamsInput = string[][] | Record<string, string> | string | URLSearc
  */
 const mergeArrayParams = (currentParams: URLSearchParams, newParams: URLSearchParams): void => {
   const keys = new Set<string>();
-  for (const [, key] of newParams) {
+  for (const [key] of newParams) {
     keys.add(key);
   }
   for (const key of keys) {
-    for (const value of currentParams.getAll(key)) {
+    for (const value of newParams.getAll(key)) {
       if (value) {
         currentParams.append(key, value);
       }
@@ -188,7 +188,7 @@ const useSearchParamsNavigation = (): SearchParamsNavigation<any> => {
   const searchParams = useNextSearchParams();
 
   const buildSearchParamsUrl = (params: SearchParamsInput, mode: SearchParamsNavigationMode = "merge") => {
-    const newParams = new URLSearchParams(params as SearchParamsInput);
+    const newParams = new URLSearchParams(params);
 
     if (mode === "replace") {
       return `${pathname}?${newParams.toString()}`;
