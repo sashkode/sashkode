@@ -81,6 +81,9 @@ importers:
       pino-pretty:
         specifier: ^13.1.2
         version: 13.1.2
+      shiki:
+        specifier: ^3.17.1
+        version: 3.17.1
       tailwindcss:
         specifier: ^4.1.17
         version: 4.1.17
