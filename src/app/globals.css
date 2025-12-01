@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "fumadocs-ui/style.css";
 @import "../features/blog/shared/code-block.css";
 
 @theme inline {
@@ -117,5 +118,28 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Override fumadocs colors to use prefers-color-scheme instead of .dark class */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-fd-background: hsl(0, 0%, 7.04%);
+    --color-fd-foreground: hsl(0, 0%, 92%);
+    --color-fd-muted: hsl(0, 0%, 12.9%);
+    --color-fd-muted-foreground: hsla(0, 0%, 70%, 0.8);
+    --color-fd-popover: hsl(0, 0%, 11.6%);
+    --color-fd-popover-foreground: hsl(0, 0%, 92%);
+    --color-fd-card: hsl(0, 0%, 10.6%);
+    --color-fd-card-foreground: hsl(0, 0%, 92%);
+    --color-fd-border: hsla(0, 0%, 50%, 0.3);
+    --color-fd-primary: hsl(0, 0%, 98%);
+    --color-fd-primary-foreground: hsl(0, 0%, 9%);
+    --color-fd-secondary: hsl(0, 0%, 15.8%);
+    --color-fd-secondary-foreground: hsl(0, 0%, 92%);
+    --color-fd-accent: hsla(0, 0%, 40%, 0.4);
+    --color-fd-accent-foreground: hsl(0, 0%, 92%);
+    --color-fd-ring: hsl(0, 0%, 83.1%);
+    --color-fd-overlay: hsla(0, 0%, 0%, 0.6);
   }
 }

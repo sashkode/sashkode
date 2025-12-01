@@ -1,10 +1,15 @@
-import type { MDXComponents } from "mdx/types";
+import type { ComponentProps } from "react";
 
-import { Pre } from "../client/components/pre";
+import { CodeBlock, Pre } from "fumadocs-ui/components/codeblock";
+import type { MDXComponents } from "mdx/types";
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     ...components,
-    pre: Pre,
+    pre: ({ children, ...props }: ComponentProps<"pre">) => (
+      <CodeBlock keepBackground={true} {...props}>
+        <Pre>{children}</Pre>
+      </CodeBlock>
+    ),
   };
 }
