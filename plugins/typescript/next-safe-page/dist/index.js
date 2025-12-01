@@ -14,6 +14,7 @@
  * NOTE: After modifying this file, run `pnpm build:ts-plugin` to recompile.
  * The compiled index.js must be committed for the plugin to work.
  */
+Object.defineProperty(exports, "__esModule", { value: true });
 /** Regex to match page file extensions */
 const PAGE_FILE_REGEX = /\/page\.tsx?$/;
 /** Regex to extract route portion from page file path */
@@ -261,4 +262,4 @@ function init(modules) {
     }
     return { create };
 }
-module.exports = init;
+exports.default = init;

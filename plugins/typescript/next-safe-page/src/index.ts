@@ -334,4 +334,4 @@ function init(modules: { typescript: typeof ts }): ts.server.PluginModule {
   return { create };
 }
 
-export = init;
+export default init;
