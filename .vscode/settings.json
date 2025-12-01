@@ -33,6 +33,7 @@
     "editor.defaultFormatter": "biomejs.biome"
   },
   "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
   "editor.formatOnPaste": true,
   "emmet.showExpandedAbbreviation": "never",
   "cSpell.words": [
@@ -52,6 +53,7 @@
     "Polyfillio",
     "Shouty",
     "Tabindex",
+    "tsserverlibrary",
     "ultracite"
   ],
   "files.exclude": {
@@ -124,6 +126,5 @@
     "**/tsconfig.tools.json": true,
     "**/.nvmrc": true,
     "**/package-lock.json": true
-  },
-  "explorerExclude.backup": {}
+  }
 }

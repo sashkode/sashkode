@@ -45,7 +45,9 @@
       "!!**/.expo-shared/**/*",
       "!!**/android/build/**/*",
       "!!**/ios/build/**/*",
-      "!!**/DerivedData/**/*"
+      "!!**/DerivedData/**/*",
+      // Deviation from ultracite: Extra ignores for this project
+      "!!**/dist/**/*"
     ]
   },
   "formatter": {
@@ -125,7 +127,12 @@
         "noBannedTypes": "error",
         "noCommaOperator": "error",
         "noEmptyTypeParameters": "error",
-        "noExcessiveCognitiveComplexity": "error",
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 20 // Deviation from ultracite: Allow slightly more complex functions
+          }
+        },
         "noExcessiveNestedTestSuites": "error",
         "noExtraBooleanCast": "error",
         "noFlatMapIdentity": "error",
