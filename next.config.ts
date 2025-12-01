@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { createMDX } from "fumadocs-mdx/next";
+
 // Import environment configurations to validate them at build time
 import "~/env/client";
 import "~/env/server";
@@ -23,4 +25,8 @@ const nextConfig: NextConfig = {
   redirects,
 };
 
-export default nextConfig;
+const withMDX = createMDX({
+  configPath: "./config/fumadocs/source.config.ts",
+});
+
+export default withMDX(nextConfig);
