@@ -19,6 +19,9 @@
     "@t3-oss/env-nextjs": "^0.13.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "fumadocs-core": "^16.2.1",
+    "fumadocs-mdx": "^14.0.4",
+    "fumadocs-ui": "^16.2.1",
     "lucide-react": "^0.555.0",
     "nanoid": "^5.1.6",
     "next": "16.0.5",
@@ -33,6 +36,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.3.8",
     "@tailwindcss/postcss": "^4.1.17",
+    "@types/mdx": "^2.0.13",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
