@@ -52,6 +52,8 @@
     "noopener",
     "nqry",
     "Polyfillio",
+    "rehype",
+    "Shiki",
     "Shouty",
     "Tabindex",
     "tsserverlibrary",
@@ -126,6 +128,7 @@
     "**/tsconfig.base.json": true,
     "**/tsconfig.tools.json": true,
     "**/.nvmrc": true,
-    "**/package-lock.json": true
+    "**/package-lock.json": true,
+    "**/.source": true
   }
 }

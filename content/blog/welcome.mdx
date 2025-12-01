@@ -15,4 +15,32 @@ This is a placeholder blog post. It will be replaced with auto-generated content
 - Interactive code blocks with syntax highlighting
 - Embedded YouTube videos at the top of each article
 
+## Code Block Example
+
+Here's an example of the Aura theme syntax highlighting:
+
+```typescript title="example.ts"
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: Date;
+}
+
+async function fetchUser(id: string): Promise<User | null> {
+  const response = await fetch(`/api/users/${id}`);
+  
+  if (!response.ok) {
+    console.error("Failed to fetch user");
+    return null;
+  }
+  
+  return response.json();
+}
+
+// Usage example
+const user = await fetchUser("123");
+console.log(user?.name ?? "Unknown");
+```
+
 Stay tuned!

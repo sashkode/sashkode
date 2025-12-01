@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "../features/blog/shared/code-block.css";
 
 @theme inline {
   --color-background: var(--background);
