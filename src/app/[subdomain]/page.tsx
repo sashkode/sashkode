@@ -31,8 +31,8 @@ export default Page.create({
           <h2 className="w-full rounded-md border border-red-200 bg-red-50 px-4 py-2 font-medium text-red-700 text-sm dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">{errors.pretty}</h2>
           <p className="max-w-md text-lg text-zinc-600 leading-8 dark:text-zinc-400">
             This is the wildcard subdomain page. Head over to the <SubdomainLink className="font-medium text-zinc-950 dark:text-zinc-50">Home</SubdomainLink> page or the{" "}
-            <SubdomainLink className="font-medium text-zinc-950 dark:text-zinc-50" subdomain="blog">
-              Blog
+            <SubdomainLink className="font-medium text-zinc-950 dark:text-zinc-50" subdomain="videos">
+              Videos
             </SubdomainLink>{" "}
             .
           </p>
@@ -54,8 +54,8 @@ export default Page.create({
         </h1>
         <p className="max-w-md text-lg text-zinc-600 leading-8 dark:text-zinc-400">
           This is the wildcard subdomain page. Head over to the <SubdomainLink className="font-medium text-zinc-950 dark:text-zinc-50">Home</SubdomainLink> page or the{" "}
-          <SubdomainLink className="font-medium text-zinc-950 dark:text-zinc-50" subdomain="blog">
-            Blog
+          <SubdomainLink className="font-medium text-zinc-950 dark:text-zinc-50" subdomain="videos">
+            Videos
           </SubdomainLink>{" "}
           .
         </p>

@@ -15,8 +15,8 @@ export default Page.create({
         <h1 className="max-w-xs font-semibold text-3xl text-black leading-10 tracking-tight dark:text-zinc-50">Home</h1>
         <p className="max-w-md text-lg text-zinc-600 leading-8 dark:text-zinc-400">
           This is the home page. Head over to the{" "}
-          <SubdomainLink className="font-medium text-zinc-950 dark:text-zinc-50" subdomain="blog">
-            Blog
+          <SubdomainLink className="font-medium text-zinc-950 dark:text-zinc-50" subdomain="videos">
+            Videos
           </SubdomainLink>{" "}
           or a random{" "}
           <SubdomainLink className="font-medium text-zinc-950 dark:text-zinc-50" subdomain={`${Math.random().toString(36).substring(2, 15)}`}>
