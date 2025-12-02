@@ -45,4 +45,91 @@ const user = await fetchUser("123");
 console.log(user?.name ?? "Unknown");
 ```
 
+## Code Diff Example
+
+Here's an example showing code changes with diff highlighting:
+
+```typescript title="refactored-fetch.ts"
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: Date;
+  updatedAt: Date; // [!code ++]
+}
+
+async function fetchUser(id: string): Promise<User | null> {
+  const response = await fetch(`/api/users/${id}`); // [!code --]
+  const response = await fetch(`/api/v2/users/${id}`); // [!code ++]
+  
+  if (!response.ok) {
+    console.error("Failed to fetch user"); // [!code --]
+    throw new Error(`Failed to fetch user: ${response.status}`); // [!code ++]
+  }
+  
+  return response.json();
+}
+```
+
+## Highlighted Lines
+
+You can also highlight specific lines:
+
+```typescript title="highlighted.ts"
+function greet(name: string) {
+  const greeting = `Hello, ${name}!`; // [!code highlight]
+  console.log(greeting); // [!code highlight]
+  return greeting;
+}
+```
+
+## Word Highlighting
+
+And highlight specific words:
+
+```typescript
+// [!code word:fetchUser]
+const user = await fetchUser("123");
+const admin = await fetchUser("admin");
+```
+
+## File Tabs
+
+Switch between multiple files with tabs:
+
+```tsx tab="page.tsx" title="app/blog/page.tsx"
+export default function BlogPage() {
+  return (
+    <main>
+      <h1>My Blog</h1>
+      <BlogList />
+    </main>
+  );
+}
+```
+
+```tsx tab="layout.tsx" title="app/blog/layout.tsx"
+export default function BlogLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="container">
+      <nav>Blog Navigation</nav>
+      {children}
+    </div>
+  );
+}
+```
+
+```css tab="styles.css" title="app/blog/styles.css"
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+nav {
+  border-bottom: 1px solid #333;
+  padding-bottom: 1rem;
+}
+```
+
 Stay tuned!

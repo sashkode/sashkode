@@ -112,6 +112,27 @@
   }
 }
 
+/* Aura theme colors */
+:root {
+  --aura-purple: #a277ff;
+  --aura-green: #61ffca;
+  --aura-orange: #ffca85;
+  --aura-pink: #f694ff;
+  --aura-blue: #82e2ff;
+  --aura-red: #ff6767;
+  --aura-background: #15141b;
+  --aura-foreground: #edecee;
+}
+
+@theme inline {
+  --color-aura-purple: var(--aura-purple);
+  --color-aura-green: var(--aura-green);
+  --color-aura-orange: var(--aura-orange);
+  --color-aura-pink: var(--aura-pink);
+  --color-aura-blue: var(--aura-blue);
+  --color-aura-red: var(--aura-red);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
