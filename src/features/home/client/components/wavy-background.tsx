@@ -6,7 +6,8 @@ import { createNoise3D } from "simplex-noise";
 
 import { cn } from "~/ui/shared/utils";
 
-const WAVE_COLORS = ["#ff6b7a", "#f8fef4", "#bde8ec", "#6fa3c9", "#4a7ba7"];
+// Aura theme colors: purple, orange, green, blue, pink
+const WAVE_COLORS = ["#a277ff", "#ffca85", "#61ffca", "#82e2ff", "#f694ff"];
 const WAVE_COUNT = 5;
 const WAVE_WIDTH = 30;
 const BLUR = 10;
