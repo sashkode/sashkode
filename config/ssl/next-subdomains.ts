@@ -109,14 +109,14 @@ export const createSubdomainConfig = (env: VercelEnv, customDomains: string[] = 
         beforeFiles: [
           {
             // Handle subdomain routing
-            source: "/:path((?!_next|_static|_vercel|.well-known|.*\\.\\w+$).*)*",
+            source: "/:path((?!api|_next|_static|_vercel|\\.well-known|.*\\.\\w+$).*)*",
             has: [{ type: "host", value: `(?<subdomain>.*).${rootDomain}` }],
             missing: [{ type: "host", value: `root.${rootDomain}` }],
             destination: "/:subdomain*/:path*",
           },
           {
             // Handle root domain routing
-            source: "/:path((?!_next|_static|_vercel|.well-known|.*\\.\\w+$).*)*",
+            source: "/:path((?!api|_next|_static|_vercel|\\.well-known|.*\\.\\w+$).*)*",
             has: [{ type: "host", value: `${rootDomain}` }],
             destination: "/root/:path*",
           },
@@ -133,7 +133,7 @@ export const createSubdomainConfig = (env: VercelEnv, customDomains: string[] = 
               {
                 // Redirect root localhost to app.localhost (for better subdomain https support)
                 permanent: false,
-                source: "/:path*",
+                source: "/:path((?!api|_next|_static|_vercel|\\.well-known|.*\\.\\w+$).*)*",
                 has: [{ type: "host", value: "localhost" }],
                 destination: "https://app.localhost:3000/:path*",
               },
@@ -142,7 +142,7 @@ export const createSubdomainConfig = (env: VercelEnv, customDomains: string[] = 
               {
                 // Non-SSL dev: redirect to http app.localhost
                 permanent: false,
-                source: "/:path*",
+                source: "/:path((?!api|_next|_static|_vercel|\\.well-known|.*\\.\\w+$).*)*",
                 has: [{ type: "host", value: "localhost" }],
                 destination: "http://app.localhost:3000/:path*",
               },

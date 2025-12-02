@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 import { createMDX } from "fumadocs-mdx/next";
+import { withWorkflow } from "workflow/next";
 
 // Import environment configurations to validate them at build time
 import "~/env/client";
@@ -19,7 +20,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   typedRoutes: true,
   logging: { incomingRequests: false },
-  serverExternalPackages: ["pino"],
+  serverExternalPackages: ["pino", "typescript", "twoslash"],
   allowedDevOrigins,
   rewrites,
   redirects,
@@ -29,4 +30,4 @@ const withMDX = createMDX({
   configPath: "./config/fumadocs/source.config.ts",
 });
 
-export default withMDX(nextConfig);
+export default withWorkflow(withMDX(nextConfig));

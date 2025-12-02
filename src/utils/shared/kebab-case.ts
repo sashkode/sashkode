@@ -54,3 +54,32 @@ export const kebabCaseSchema = () =>
       message: "Must be kebab-case: lowercase letters and numbers only, separated by single hyphens (no leading, trailing, or consecutive hyphens)",
     }
   );
+
+/**
+ * Convert a string to kebab-case format.
+ * Handles camelCase, PascalCase, snake_case, spaces, and special characters.
+ *
+ * @example
+ * ```typescript
+ * toKebabCase("Building a REST API") // "building-a-rest-api"
+ * toKebabCase("myComponentName") // "my-component-name"
+ * toKebabCase("Hello World!") // "hello-world"
+ * ```
+ */
+export function toKebabCase(input: string): string {
+  return (
+    input
+      // Insert hyphen before uppercase letters (for camelCase/PascalCase)
+      .replace(/([a-z\d])([A-Z])/g, "$1-$2")
+      // Replace underscores and spaces with hyphens
+      .replace(/[_\s]+/g, "-")
+      // Remove non-alphanumeric characters except hyphens
+      .replace(/[^a-zA-Z0-9-]/g, "")
+      // Convert to lowercase
+      .toLowerCase()
+      // Remove consecutive hyphens
+      .replace(/-+/g, "-")
+      // Remove leading and trailing hyphens
+      .replace(/^-|-$/g, "")
+  );
+}
