@@ -10,8 +10,7 @@ export const videos = defineCollections({
   schema: frontmatterSchema.extend({
     author: z.string(),
     date: z.string().date().or(z.date()),
-    youtubeVideoId: z.string().optional(),
-    youtubeThumbnailUrl: z.string().url().optional(),
+    youtubeVideoId: z.string(),
   }),
   mdxOptions: applyMdxPreset({
     preset: "fumadocs",
