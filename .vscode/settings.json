@@ -57,7 +57,8 @@
     "Shouty",
     "Tabindex",
     "tsserverlibrary",
-    "ultracite"
+    "ultracite",
+    "vercel"
   ],
   "files.exclude": {
     "**/.git": true,
