@@ -1,14 +1,14 @@
 import Image from "next/image";
 
-import { blog } from "~/features/blog/server/source";
+import { videos } from "~/features/videos/server/source";
 import { SubdomainLink } from "~/platform/client/components/subdomain-link";
 import { Page } from "~/platform/server/safe-page";
 
 export default Page.create({
-  path: "/blog",
-  name: "blog",
+  path: "/videos",
+  name: "videos",
 }).page(() => {
-  const posts = blog.getPages().sort((a, b) => {
+  const posts = videos.getPages().sort((a, b) => {
     const dateA = new Date(a.data.date ?? 0);
     const dateB = new Date(b.data.date ?? 0);
     return dateB.getTime() - dateA.getTime();
@@ -18,14 +18,14 @@ export default Page.create({
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex min-h-screen w-full max-w-4xl flex-col bg-white px-8 py-16 sm:px-16 sm:py-32 dark:bg-black">
         <header className="mb-12">
-          <h1 className="font-semibold text-4xl text-black tracking-tight dark:text-zinc-50">Blog</h1>
+          <h1 className="font-semibold text-4xl text-black tracking-tight dark:text-zinc-50">Videos</h1>
           <p className="mt-2 text-lg text-zinc-600 dark:text-zinc-400">Articles generated from YouTube videos with interactive code examples.</p>
         </header>
 
         <div className="grid gap-6">
           {posts.map((post) => (
             <article className="group" key={post.url}>
-              <SubdomainLink className="block rounded-xl border border-zinc-200 p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:border-zinc-700 dark:hover:bg-zinc-900/50" params={{ slug: post.slugs[0] ?? "" }} pathname="/[slug]" subdomain="blog">
+              <SubdomainLink className="block rounded-xl border border-zinc-200 p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:border-zinc-700 dark:hover:bg-zinc-900/50" params={{ slug: post.slugs[0] ?? "" }} pathname="/[slug]" subdomain="videos">
                 <div className="flex h-24 flex-row items-center gap-6">
                   {post.data.youtubeThumbnailUrl ? (
                     <div className="relative h-full shrink-0 overflow-hidden rounded-lg" style={{ aspectRatio: "16/9" }}>
@@ -56,7 +56,7 @@ export default Page.create({
 
         {posts.length === 0 ? (
           <div className="py-12 text-center">
-            <p className="text-zinc-600 dark:text-zinc-400">No posts yet. Check back soon!</p>
+            <p className="text-zinc-600 dark:text-zinc-400">No videos yet. Check back soon!</p>
           </div>
         ) : null}
       </main>

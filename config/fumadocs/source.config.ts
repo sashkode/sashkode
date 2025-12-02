@@ -2,11 +2,11 @@ import { rehypeCodeDefaultOptions } from "fumadocs-core/mdx-plugins";
 import { applyMdxPreset, defineCollections, frontmatterSchema } from "fumadocs-mdx/config";
 import { z } from "zod";
 
-import { auraTheme } from "../../src/features/blog/shared/aura-theme";
+import { auraTheme } from "../../src/features/videos/shared/aura-theme";
 
-export const blog = defineCollections({
+export const videos = defineCollections({
   type: "doc",
-  dir: "content/blog",
+  dir: "content/videos",
   schema: frontmatterSchema.extend({
     author: z.string(),
     date: z.string().date().or(z.date()),

@@ -4,7 +4,7 @@ import { CodeBlock, CodeBlockTab, CodeBlockTabs, CodeBlockTabsList, CodeBlockTab
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import type { MDXComponents } from "mdx/types";
 
-import { H1, H2, H3, H4, H5, H6 } from "~/features/blog/client/components/heading";
+import { H1, H2, H3, H4, H5, H6 } from "~/features/videos/client/components/heading";
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
