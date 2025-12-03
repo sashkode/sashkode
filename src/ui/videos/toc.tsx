@@ -15,7 +15,7 @@ export function TableOfContents({ items, hasVideo }: TOCProps) {
   // Prepend video item if present
   const allItems: TOCItemType[] = hasVideo ? [{ title: "Video", url: "#video", depth: 2 }, ...items] : items;
 
-  // Debug: show even if empty
+  // Show empty state when no headings are found
   if (allItems.length === 0) {
     return (
       <nav aria-label="Table of contents" className="lg:block! sticky top-24 hidden h-fit w-64 shrink-0 py-16">

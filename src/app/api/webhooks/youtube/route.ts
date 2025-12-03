@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { env } from "~/env/server";
 import { startVideoToArticleWorkflow } from "~/features/videos/server/video-to-article.workflow";
@@ -34,13 +34,20 @@ export async function POST(request: Request) {
   const signature = request.headers.get("X-Hub-Signature");
   const body = await request.text();
 
-  // Verify request authenticity using HMAC-SHA1
-  if (signature) {
-    const expectedSignature = `sha1=${createHmac("sha1", env.YOUTUBE_WEBHOOK_SECRET).update(body).digest("hex")}`;
+  // Reject requests missing the signature header
+  if (!signature) {
+    return new Response("Missing signature", { status: 401 });
+  }
 
-    if (signature !== expectedSignature) {
-      return new Response("Invalid signature", { status: 401 });
-    }
+  // Verify request authenticity using HMAC-SHA1 with timing-safe comparison
+  const expectedSignature = `sha1=${createHmac("sha1", env.YOUTUBE_WEBHOOK_SECRET).update(body).digest("hex")}`;
+
+  // Use timing-safe comparison to prevent timing attacks
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+
+  if (signatureBuffer.length !== expectedBuffer.length || !timingSafeEqual(signatureBuffer, expectedBuffer)) {
+    return new Response("Invalid signature", { status: 401 });
   }
 
   // Parse Atom XML to extract video information

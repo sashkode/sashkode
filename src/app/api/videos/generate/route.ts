@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { NextResponse } from "next/server";
 
 import { z } from "zod";
@@ -21,7 +23,11 @@ export async function POST(request: Request) {
 
   const token = authHeader.slice(7);
 
-  if (token !== env.ADMIN_API_KEY) {
+  // Use timing-safe comparison to prevent timing attacks
+  const tokenBuffer = Buffer.from(token);
+  const keyBuffer = Buffer.from(env.ADMIN_API_KEY);
+
+  if (tokenBuffer.length !== keyBuffer.length || !timingSafeEqual(tokenBuffer, keyBuffer)) {
     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
   }
 

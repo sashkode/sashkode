@@ -143,6 +143,7 @@ export function generatePublicImageTypes(projectRoot: string): void {
 
   if (existingContent !== typeDefinition) {
     fs.writeFileSync(outputPath, typeDefinition);
+    // biome-ignore lint/suspicious/noConsole: Not part of the app
     console.log(`[public-images] Generated types for ${images.length} image(s)`);
   }
 }
