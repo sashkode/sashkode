@@ -1,6 +1,5 @@
 import type { ComponentProps } from "react";
 
-import { Popup, PopupContent, PopupTrigger } from "fumadocs-twoslash/ui";
 import { CodeBlock, CodeBlockTab, CodeBlockTabs, CodeBlockTabsList, CodeBlockTabsTrigger, Pre } from "fumadocs-ui/components/codeblock";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import type { MDXComponents } from "mdx/types";
@@ -27,8 +26,5 @@ export function getMDXComponents(components: MDXComponents): MDXComponents {
     CodeBlockTabs,
     CodeBlockTabsList,
     CodeBlockTabsTrigger,
-    Popup,
-    PopupContent,
-    PopupTrigger,
   };
 }

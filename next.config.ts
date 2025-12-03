@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   typedRoutes: true,
   logging: { incomingRequests: false },
-  serverExternalPackages: ["pino", "typescript", "twoslash"],
+  serverExternalPackages: ["pino"],
   allowedDevOrigins,
   rewrites,
   redirects,

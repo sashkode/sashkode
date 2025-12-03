@@ -48,22 +48,6 @@ Use permalinks when:
 - Pointing to related files the reader should explore
 - Linking to the authoritative source of a snippet shown in the article
 
-## Twoslash for Type Information
-
-Use `twoslash` meta string on TypeScript code blocks to enable hover type information:
-
-```ts twoslash
-interface User {
-  id: string;
-  name: string;
-}
-
-const user: User = { id: "1", name: "Alice" };
-//    ^?
-```
-
-The `//    ^?` annotation shows the type on hover. This helps readers understand types without leaving the article.
-
 ## Output Requirements
 
 ### File Location
@@ -89,7 +73,6 @@ youtubeVideoId: string # The video ID provided
 
 ### Code Block Features
 - Add `title="path/to/file.ts"` for file context
-- Use `twoslash` for TypeScript blocks where type info adds value
 - Use `// [!code ++]` for additions, `// [!code --]` for removals
 - Use `// [!code highlight]` for emphasis
 - Use `tab="filename.tsx"` for multi-file examples
@@ -103,4 +86,4 @@ youtubeVideoId: string # The video ID provided
 - Use bullet lists for steps or options
 
 ## Reference
-See `content/videos/welcome.mdx` for formatting examples including twoslash, diffs, and tabs.
+See `content/videos/welcome.mdx` for formatting examples including diffs and tabs.

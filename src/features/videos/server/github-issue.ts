@@ -276,7 +276,6 @@ Follow the instructions in \`.github/copilot/agents/article-writer.md\` for comp
 - Create **supporting material**, not a transcript — the article complements the video
 - **Explore the repository** for related code, utilities, types, and configurations
 - Use **GitHub permalinks** to \`trunk\` branch for code references
-- Use **twoslash** for TypeScript code blocks to show type information
 
 ### Output
 
@@ -312,7 +311,6 @@ https://github.com/sashkode/sashkode/blob/trunk/path/to/file.ts#L10-L20
 \`\`\`
 
 ### Code Block Guidelines
-- Use \`twoslash\` meta for TypeScript blocks: \`\`\`ts twoslash
 - Use \`// [!code ++]\` and \`// [!code --]\` for diff highlighting
 - Use \`// [!code highlight]\` for emphasizing important lines
 - Use \`tab="filename.tsx"\` attribute for multi-file examples

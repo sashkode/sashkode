@@ -131,39 +131,4 @@ nav {
 }
 ```
 
-## Twoslash Example
-
-Twoslash enables hover-to-see-type annotations in TypeScript code blocks. Hover over variables to see their inferred types:
-
-```ts twoslash
-interface BlogPost {
-  id: string;
-  title: string;
-  content: string;
-  publishedAt: Date;
-  tags: string[];
-}
-
-async function fetchPosts(): Promise<BlogPost[]> {
-  const response = await fetch("/api/posts");
-  return response.json();
-}
-
-const posts = await fetchPosts();
-//    ^?
-
-const firstPost = posts[0];
-//    ^?
-
-const tags = firstPost?.tags ?? [];
-//    ^?
-```
-
-You can also show type errors inline:
-
-```ts twoslash
-// @errors: 2322
-const name: string = 123;
-```
-
 Stay tuned!

@@ -1,6 +1,4 @@
-import { rehypeCodeDefaultOptions } from "fumadocs-core/mdx-plugins";
 import { applyMdxPreset, defineCollections, frontmatterSchema } from "fumadocs-mdx/config";
-import { transformerTwoslash } from "fumadocs-twoslash";
 import { z } from "zod";
 
 import { auraTheme } from "../../src/features/videos/shared/aura-theme";
@@ -20,7 +18,6 @@ export const videos = defineCollections({
         light: auraTheme,
         dark: auraTheme,
       },
-      transformers: [...(rehypeCodeDefaultOptions.transformers ?? []), transformerTwoslash()],
     },
   }),
 });
