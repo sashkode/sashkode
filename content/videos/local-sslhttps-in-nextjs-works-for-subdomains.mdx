@@ -1,0 +1,347 @@
+---
+title: Local SSL/HTTPS in Next.js • Works for Subdomains!
+description: Set up trusted SSL certificates for local Next.js development with full subdomain support, including automated scripts for certificate generation and installation.
+author: sashkode
+date: 2025-11-13
+youtubeVideoId: JcwIRIIpkfI
+---
+
+This guide demonstrates how to configure HTTPS for local Next.js development with full subdomain support. You'll set up trusted SSL certificates that work seamlessly with subdomains like `tenant1.app.localhost` or `admin.app.localhost`.
+
+## Quick Start: The Easy Way
+
+Next.js 15+ includes built-in HTTPS support via an experimental flag:
+
+```bash title="Terminal"
+next dev --experimental-https
+```
+
+Or add it to your `package.json`:
+
+```json title="package.json"
+{
+  "scripts": {
+    "dev": "next dev --experimental-https"
+  }
+}
+```
+
+Next.js will automatically generate and install SSL certificates on first run. However, **this approach doesn't support subdomains** — you'll need custom certificates for that.
+
+## Why Custom Certificates Matter
+
+The default Next.js certificates only cover `localhost`. If you're building multi-tenant applications or testing subdomain-based routing, you need certificates that support:
+
+- `localhost`
+- `app.localhost` (recommended base domain)
+- `*.app.localhost` (wildcard for all subdomains)
+
+Custom certificates also give you control over the certificate authority and domain configuration.
+
+## Manual Certificate Generation
+
+### Step 1: Generate Certificate Authority
+
+Create a root Certificate Authority (CA) that will sign your domain certificates:
+
+```bash title="Terminal"
+openssl req -x509 -nodes -new -sha256 -days 1024 -newkey rsa:2048 \
+  -keyout ./RootCA.key \
+  -out ./RootCA.pem \
+  -subj "/C=CA/CN=MyCompany-Root-CA"
+
+openssl x509 -outform pem -in ./RootCA.pem -out ./RootCA.crt
+```
+
+This generates three files:
+- `RootCA.key` — Private key (never commit)
+- `RootCA.pem` — Certificate (never commit)
+- `RootCA.crt` — Public certificate (safe to commit)
+
+### Step 2: Configure Domains
+
+Create a `domains.ext` file specifying all domains and subdomains:
+
+```text title="domains.ext"
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = localhost
+DNS.2 = app.localhost
+DNS.3 = *.app.localhost
+```
+
+The wildcard `*.app.localhost` enables any subdomain like `tenant1.app.localhost` or `admin.app.localhost`.
+
+### Step 3: Generate Domain Certificate
+
+Create the certificate for your localhost domains:
+
+```bash title="Terminal"
+openssl req -new -nodes -newkey rsa:2048 \
+  -keyout ./localhost.key \
+  -out ./localhost.csr \
+  -subj "/C=CA/ST=Ontario/L=Ottawa/O=MyCompany-Dev/CN=*.app.localhost"
+
+openssl x509 -req -sha256 -days 1024 \
+  -in ./localhost.csr \
+  -CA ./RootCA.pem \
+  -CAkey ./RootCA.key \
+  -CAcreateserial \
+  -CAserial ./RootCA.srl \
+  -extfile ./domains.ext \
+  -out ./localhost.crt
+```
+
+### Step 4: Install Certificates
+
+On macOS, install both the CA and domain certificates:
+
+```bash title="Terminal"
+# Install Root CA
+sudo security add-trusted-cert -d -r trustRoot -p ssl -p codeSign \
+  -k /Library/Keychains/System.keychain ./RootCA.crt
+
+# Install domain certificate
+sudo security add-trusted-cert -d -r trustAsRoot -p ssl -p codeSign \
+  -k /Library/Keychains/System.keychain ./localhost.crt
+```
+
+Restart your browser after installation for changes to take effect.
+
+### Step 5: Configure Next.js
+
+Update your `package.json` with the certificate paths:
+
+```json title="package.json"
+{
+  "scripts": {
+    "dev:ssl": "next dev --experimental-https --experimental-https-ca ./config/ssl/certificates/RootCA.crt --experimental-https-key ./config/ssl/certificates/localhost.key --experimental-https-cert ./config/ssl/certificates/localhost.crt"
+  }
+}
+```
+
+Now `pnpm dev:ssl` starts Next.js with your custom certificates.
+
+## Automated Setup Scripts
+
+This repository includes two bash scripts that automate the entire process:
+
+### Setup Script
+
+The [`setup.sh`](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/setup.sh) script generates all certificates with an interactive CLI:
+
+```bash title="Terminal"
+cd config/ssl
+./setup.sh
+```
+
+The script prompts for:
+- Certificate Authority name
+- Country, state, and city
+- Organization name
+- Additional domains (optional)
+
+It automatically:
+- Generates CA and domain certificates
+- Creates the `domains.ext` configuration
+- Updates `.gitignore` to exclude sensitive files
+- Optionally updates `package.json` with `dev:ssl` and `predev:ssl` scripts
+
+**Key features:**
+- Uses Node.js fallback if `jq` isn't installed
+- Preserves existing `dev` script configuration
+- Only commits safe files (`.crt`, `.key` for localhost, `domains.ext`)
+
+See the [complete implementation](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/setup.sh).
+
+### Trust Script
+
+The [`trust.sh`](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/trust.sh) script ensures certificates are installed before starting the dev server:
+
+```bash title="Terminal"
+./config/ssl/trust.sh
+```
+
+This script:
+- Checks if certificates are already trusted
+- Prompts for sudo only when needed
+- Installs certificates to both System and Login keychains
+- Auto-detects CA and domain certificate files
+
+The `predev:ssl` script automatically runs this before `dev:ssl`:
+
+```json title="package.json"
+{
+  "scripts": {
+    "predev:ssl": "./config/ssl/trust.sh", // [!code highlight]
+    "dev:ssl": "next dev --experimental-https ..."
+  }
+}
+```
+
+When you run `pnpm dev:ssl`, the trust script runs first, ensuring certificates are installed.
+
+See the [complete implementation](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/trust.sh).
+
+## Subdomain Routing Configuration
+
+### Why `app.localhost`?
+
+Chrome treats `localhost` specially for cookies. Using `app.localhost` as your base domain provides:
+
+- **Proper subdomain cookie behavior** — Cookies set on `app.localhost` can be shared with `*.app.localhost`
+- **Domain + extension structure** — Chrome sees `app` as the domain and `localhost` as the extension
+- **Consistent with production** — Mirrors how cookies work on real domains
+
+Without this, subdomain cookies won't work correctly in Chrome.
+
+### Next.js Configuration
+
+The [`createSubdomainConfig`](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/next-subdomains.ts) utility handles subdomain routing:
+
+```typescript title="next.config.ts"
+import { createSubdomainConfig } from "./config/ssl/next-subdomains";
+
+const { rewrites, redirects, allowedDevOrigins } = createSubdomainConfig(
+  env, 
+  ["sashkode.dev", "sashkode.app"]
+);
+
+const nextConfig = {
+  allowedDevOrigins,
+  rewrites,
+  redirects,
+};
+```
+
+This configuration:
+- **Rewrites subdomain requests** to appropriate app directories
+- **Redirects `localhost`** to `app.localhost` in development
+- **Detects SSL mode** via `npm_lifecycle_event` (checks for `dev:ssl`)
+- **Supports custom domains** for preview/production environments
+
+The redirects ensure you always use `app.localhost` instead of plain `localhost`:
+
+```typescript title="config/ssl/next-subdomains.ts" {8-10}
+redirects: () => {
+  if (isDev) {
+    return isDevSSL
+      ? [
+          {
+            permanent: false,
+            source: "/:path*",
+            has: [{ type: "host", value: "localhost" }],
+            destination: "https://app.localhost:3000/:path*", // [!code highlight]
+          },
+        ]
+      : // ... http fallback
+  }
+  return [];
+}
+```
+
+See the [full subdomain configuration](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/next-subdomains.ts) for details.
+
+### App Directory Structure
+
+Organize your routes by subdomain:
+
+```text
+app/
+├── root/              # Routes for app.localhost
+│   ├── page.tsx
+│   └── layout.tsx
+├── blog/              # Routes for blog.app.localhost
+│   ├── page.tsx
+│   └── layout.tsx
+├── [tenant]/          # Dynamic subdomain routes
+│   ├── page.tsx       # tenant1.app.localhost
+│   └── layout.tsx
+└── layout.tsx         # Shared root layout
+```
+
+Access your tenant parameter in pages:
+
+```tsx title="app/[tenant]/page.tsx"
+export default async function TenantPage({
+  params,
+}: {
+  params: Promise<{ tenant: string }>;
+}) {
+  const { tenant } = await params;
+  return <div>Welcome to {tenant}</div>;
+}
+```
+
+## Complete Workflow
+
+Here's the recommended development workflow:
+
+1. **Initial setup** (one-time):
+   ```bash
+   cd config/ssl
+   ./setup.sh
+   ```
+
+2. **Start development**:
+   ```bash
+   pnpm dev:ssl
+   ```
+
+3. **Access your app**:
+   - Root domain: `https://app.localhost:3000`
+   - Blog subdomain: `https://blog.app.localhost:3000`
+   - Tenant subdomain: `https://acme.app.localhost:3000`
+
+The certificates work seamlessly across all subdomains thanks to the wildcard configuration.
+
+## Security Considerations
+
+**Safe to commit:**
+- `RootCA.crt` — Public certificate
+- `localhost.crt` — Public certificate
+- `localhost.key` — Development-only key
+- `domains.ext` — Domain configuration
+
+**Never commit:**
+- `RootCA.key` — Private CA key
+- `RootCA.pem` — CA certificate with private data
+- `localhost.csr` — Certificate signing request
+- `RootCA.srl` — Serial number file
+
+The `setup.sh` script automatically configures `.gitignore` to exclude sensitive files.
+
+## Troubleshooting
+
+**Browser shows "Not Secure":**
+- Restart your browser after installing certificates
+- Check certificates are installed: `security find-certificate -c "MyCompany-Root-CA"`
+- Re-run `./config/ssl/trust.sh` to ensure proper installation
+
+**Subdomains don't work:**
+- Verify `domains.ext` includes `*.app.localhost`
+- Check Next.js config uses `createSubdomainConfig`
+- Ensure you're accessing `https://subdomain.app.localhost:3000` (not plain `localhost`)
+
+**Cookies not working across subdomains:**
+- Use `app.localhost` as your base domain, not plain `localhost`
+- Set cookie domain to `.app.localhost` to share across subdomains
+- Check Chrome DevTools → Application → Cookies to verify domain
+
+## Further Reading
+
+- [Next.js HTTPS Documentation](https://nextjs.org/docs/app/api-reference/cli/next#using-https-during-development)
+- [mkcert](https://github.com/FiloSottile/mkcert) — Cross-platform certificate generation tool
+- [OpenSSL Documentation](https://www.openssl.org/docs/)
+
+## Related Code
+
+Explore the complete implementation in the repository:
+
+- [`config/ssl/setup.sh`](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/setup.sh) — Automated certificate setup
+- [`config/ssl/trust.sh`](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/trust.sh) — Certificate installation script
+- [`config/ssl/next-subdomains.ts`](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/next-subdomains.ts) — Subdomain routing configuration
+- [`next.config.ts`](https://github.com/sashkode/sashkode/blob/trunk/next.config.ts) — Next.js configuration with SSL support
