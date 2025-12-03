@@ -22,7 +22,6 @@
     "date-fns": "^4.1.0",
     "fumadocs-core": "^16.2.1",
     "fumadocs-mdx": "^14.0.4",
-    "fumadocs-twoslash": "^3.1.10",
     "fumadocs-ui": "^16.2.1",
     "lucide-react": "^0.555.0",
     "nanoid": "^5.1.6",
@@ -33,7 +32,6 @@
     "react-dom": "19.2.0",
     "simplex-noise": "^4.0.3",
     "tailwind-merge": "^3.4.0",
-    "twoslash": "^0.3.4",
     "workflow": "4.0.1-beta.22",
     "zod": "^4.1.13"
   },

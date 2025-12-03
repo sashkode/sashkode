@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "fumadocs-ui/style.css";
-@import "fumadocs-twoslash/twoslash.css";
 @import "../features/videos/shared/code-block.css";
 
 @theme inline {
