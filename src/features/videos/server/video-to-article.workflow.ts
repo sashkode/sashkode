@@ -4,6 +4,9 @@ import { start } from "workflow/api";
 import { getCaptions, getVideoMetadata, type VideoMetadata } from "./captions";
 import { createGitHubIssue } from "./github-issue";
 
+// Cannot use the logger in workflow context
+const Logger = console;
+
 /**
  * Durable workflow for creating blog articles from YouTube videos
  *
@@ -17,7 +20,7 @@ export async function videoToArticleWorkflow(videoId: string): Promise<{ success
 
   // Step 1: Fetch video metadata
   const metadata = await fetchVideoMetadata(videoId);
-  console.log("Video metadata fetched:", metadata);
+  Logger.info("Video metadata fetched", { scope: "VIDEO_WORKFLOW", videoId, title: metadata?.title });
 
   if (!metadata) {
     throw new Error(`Failed to fetch metadata for video ${videoId}`);
@@ -25,10 +28,10 @@ export async function videoToArticleWorkflow(videoId: string): Promise<{ success
 
   // Step 2: Fetch transcript
   let transcript = await fetchTranscript(videoId);
-  console.log("Video transcript fetched:", transcript);
+  Logger.info("Video transcript fetched", { scope: "VIDEO_WORKFLOW", videoId, length: transcript?.length });
 
   if (!transcript) {
-    console.log(`Transcript not available for video ${videoId}, retrying after delay`);
+    Logger.info("Transcript not available, retrying after delay", { scope: "VIDEO_WORKFLOW", videoId });
     // Wait and retry if captions not yet available
     // (YouTube can take time to process auto-captions)
     await sleep("2h");
@@ -41,7 +44,7 @@ export async function videoToArticleWorkflow(videoId: string): Promise<{ success
 
   // Step 3: Create GitHub issue assigned to Copilot
   const issueUrl = await createCopilotIssue({ videoId, metadata, transcript });
-  console.log("GitHub issue created for video article:", issueUrl);
+  Logger.info("GitHub issue created for video article", { scope: "VIDEO_WORKFLOW", videoId, issueUrl });
 
   return { success: true, issueUrl };
 }

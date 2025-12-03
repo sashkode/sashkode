@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { NextResponse } from "next/server";
 
 import { env } from "~/env/server";
@@ -23,8 +25,13 @@ const YOUTUBE_TOPIC_BASE = "https://www.youtube.com/xml/feeds/videos.xml";
 export async function GET(request: Request) {
   // Verify this is a cron request from Vercel
   const authHeader = request.headers.get("Authorization");
+  const expectedAuth = `Bearer ${env.CRON_SECRET}`;
 
-  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
+  // Use timing-safe comparison to prevent timing attacks
+  const authBuffer = Buffer.from(authHeader ?? "");
+  const expectedBuffer = Buffer.from(expectedAuth);
+
+  if (authBuffer.length !== expectedBuffer.length || !timingSafeEqual(authBuffer, expectedBuffer)) {
     Logger.warn("Unauthorized cron request attempt");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -23,7 +23,7 @@
  */
 
 import { createServer } from "node:http";
-import * as readline from "node:readline";
+import readline from "node:readline";
 import { URL } from "node:url";
 
 const CLIENT_ID = process.env["YOUTUBE_CLIENT_ID"];

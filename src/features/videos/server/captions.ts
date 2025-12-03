@@ -1,7 +1,12 @@
 import { env } from "~/env/server";
+import { Logger } from "~/platform/server/logger";
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
+
+// SRT parsing regex patterns (top-level for performance)
+const SRT_TIMING_REGEX = /^\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[.,]\d{3}/;
+const SRT_SEQUENCE_REGEX = /^\d+$/;
 
 // Cache for OAuth access token
 let cachedAccessToken: { token: string; expiresAt: number } | null = null;
@@ -39,7 +44,7 @@ async function getAccessToken(): Promise<string> {
     expiresAt: Date.now() + data.expires_in * 1000,
   };
 
-  console.info("OAuth access token refreshed", { scope: "YOUTUBE_API" });
+  Logger.info("OAuth access token refreshed", { scope: "YOUTUBE_API" });
   return cachedAccessToken.token;
 }
 
@@ -81,7 +86,7 @@ export async function getVideoMetadata(videoId: string): Promise<VideoMetadata |
   const response = await fetch(url.toString());
 
   if (!response.ok) {
-    console.error(`Failed to fetch video metadata: ${response.status} ${response.statusText}`, { scope: "YOUTUBE_API" });
+    Logger.error(`Failed to fetch video metadata: ${response.status} ${response.statusText}`, { scope: "YOUTUBE_API" });
     return null;
   }
 
@@ -89,7 +94,7 @@ export async function getVideoMetadata(videoId: string): Promise<VideoMetadata |
   const video = data.items?.[0];
 
   if (!video) {
-    console.error(`Video not found: ${videoId}`, { scope: "YOUTUBE_API" });
+    Logger.error(`Video not found: ${videoId}`, { scope: "YOUTUBE_API" });
     return null;
   }
 
@@ -120,7 +125,7 @@ type CaptionListResponse = {
 /**
  * List available caption tracks for a video
  */
-async function listCaptions(videoId: string): Promise<CaptionListResponse["items"]> {
+async function listCaptions(videoId: string): Promise<CaptionListResponse["items"] | undefined> {
   const accessToken = await getAccessToken();
 
   const url = new URL(`${YOUTUBE_API_BASE}/captions`);
@@ -132,7 +137,7 @@ async function listCaptions(videoId: string): Promise<CaptionListResponse["items
   });
 
   if (!response.ok) {
-    console.error(`Failed to list captions: ${response.status} ${response.statusText}`, { scope: "YOUTUBE_API" });
+    Logger.error(`Failed to list captions: ${response.status} ${response.statusText}`, { scope: "YOUTUBE_API" });
     return;
   }
 
@@ -154,7 +159,7 @@ async function downloadCaption(captionId: string): Promise<string | null> {
   });
 
   if (!response.ok) {
-    console.error(`Failed to download caption: ${response.status} ${response.statusText}`, { scope: "YOUTUBE_API" });
+    Logger.error(`Failed to download caption: ${response.status} ${response.statusText}`, { scope: "YOUTUBE_API" });
     return null;
   }
 
@@ -167,12 +172,10 @@ async function downloadCaption(captionId: string): Promise<string | null> {
 function parseSrt(srtContent: string): string {
   const lines = srtContent.split("\n");
   const textLines: string[] = [];
-  const timingRegex = /^\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[.,]\d{3}/;
-  const sequenceRegex = /^\d+$/;
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || sequenceRegex.test(trimmed) || timingRegex.test(trimmed)) {
+    if (!trimmed || SRT_SEQUENCE_REGEX.test(trimmed) || SRT_TIMING_REGEX.test(trimmed)) {
       continue;
     }
     textLines.push(trimmed);
@@ -190,7 +193,7 @@ export async function getCaptions(videoId: string): Promise<string | null> {
     const captions = await listCaptions(videoId);
 
     if (!captions || captions.length === 0) {
-      console.info(`No captions available for video ${videoId}`, { scope: "YOUTUBE_API" });
+      Logger.info(`No captions available for video ${videoId}`, { scope: "YOUTUBE_API" });
       return null;
     }
 
@@ -212,7 +215,7 @@ export async function getCaptions(videoId: string): Promise<string | null> {
       return null;
     }
 
-    console.info(`Using caption: ${bestCaption.snippet.language} (${bestCaption.snippet.trackKind})`, {
+    Logger.info(`Using caption: ${bestCaption.snippet.language} (${bestCaption.snippet.trackKind})`, {
       scope: "YOUTUBE_API",
     });
 
@@ -222,10 +225,10 @@ export async function getCaptions(videoId: string): Promise<string | null> {
     }
 
     const transcript = parseSrt(srtContent);
-    console.info(`Fetched transcript for video ${videoId} (${transcript.length} chars)`, { scope: "YOUTUBE_API" });
+    Logger.info(`Fetched transcript for video ${videoId} (${transcript.length} chars)`, { scope: "YOUTUBE_API" });
     return transcript;
   } catch (error) {
-    console.error("Failed to fetch captions", { scope: "YOUTUBE_API", error });
+    Logger.error("Failed to fetch captions", { scope: "YOUTUBE_API", error });
     return null;
   }
 }
