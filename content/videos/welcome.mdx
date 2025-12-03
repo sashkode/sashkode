@@ -132,3 +132,17 @@ nav {
 ```
 
 Stay tuned!
+
+```files
+app/
+├── root/              # Routes for app.localhost
+│   ├── page.tsx
+│   └── layout.tsx
+├── blog/              # Routes for blog.app.localhost
+│   ├── page.tsx
+│   └── layout.tsx
+├── [tenant]/          # Dynamic subdomain routes
+│   ├── page.tsx       # tenant1.app.localhost
+│   └── layout.tsx
+└── layout.tsx         # Shared root layout
+```

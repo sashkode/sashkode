@@ -1,3 +1,4 @@
+import { remarkMdxFiles } from "fumadocs-core/mdx-plugins";
 import { applyMdxPreset, defineCollections, frontmatterSchema } from "fumadocs-mdx/config";
 import { z } from "zod";
 
@@ -13,6 +14,7 @@ export const videos = defineCollections({
   }),
   mdxOptions: applyMdxPreset({
     preset: "fumadocs",
+    remarkPlugins: [remarkMdxFiles],
     rehypeCodeOptions: {
       themes: {
         light: auraTheme,
