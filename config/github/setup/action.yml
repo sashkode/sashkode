@@ -1,6 +1,17 @@
 name: "CI Setup"
 description: "Common setup steps for workflows"
 
+inputs:
+  vercel_token:
+    description: "Vercel API token for pulling environment variables"
+    required: false
+  vercel_org_id:
+    description: "Vercel organization/team ID"
+    required: false
+  vercel_project_id:
+    description: "Vercel project ID"
+    required: false
+
 runs:
   using: composite
   steps:
@@ -21,3 +32,16 @@ runs:
     - name: Install Dependencies
       shell: bash
       run: pnpm install
+
+    - name: Install Vercel CLI
+      if: ${{ inputs.vercel_token != '' }}
+      shell: bash
+      run: pnpm add -g vercel@latest
+
+    - name: Pull Vercel Environment Variables
+      if: ${{ inputs.vercel_token != '' }}
+      shell: bash
+      env:
+        VERCEL_ORG_ID: ${{ inputs.vercel_org_id }}
+        VERCEL_PROJECT_ID: ${{ inputs.vercel_project_id }}
+      run: vercel env pull .env.local --yes --environment=production --token=${{ inputs.vercel_token }}
