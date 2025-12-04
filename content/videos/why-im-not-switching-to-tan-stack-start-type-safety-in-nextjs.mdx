@@ -536,7 +536,7 @@ Client components can access the context:
 "use client";
 
 import { usePage } from "~/platform/client/hooks/use-page";
-// Import the page type - adjust path based on your file structure
+// Conceptual example - replace with actual page import from your app
 import type ProductsPage from "~/app/products/page";
 
 export function ProductFilters() {
@@ -546,7 +546,10 @@ export function ProductFilters() {
     <div>
       <select
         value={searchParams.sort}
-        onChange={(e) => replaceSearchParams({ sort: e.target.value as "price" | "name" | "date" })}
+        onChange={(e) => 
+          // Type assertion is safe here since select only allows these specific values
+          replaceSearchParams({ sort: e.target.value as "price" | "name" | "date" })
+        }
       >
         <option value="price">Price</option>
         <option value="name">Name</option>
@@ -555,7 +558,10 @@ export function ProductFilters() {
       
       <select
         value={searchParams.order}
-        onChange={(e) => replaceSearchParams({ order: e.target.value as "asc" | "desc" })}
+        onChange={(e) => 
+          // Type assertion is safe here since select only allows these specific values
+          replaceSearchParams({ order: e.target.value as "asc" | "desc" })
+        }
       >
         <option value="asc">Ascending</option>
         <option value="desc">Descending</option>
