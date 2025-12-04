@@ -1,0 +1,698 @@
+---
+title: I Let Copilot Automate My Blog • What Could Go Wrong?
+description: A complete breakdown of the automated workflow that turns YouTube videos into fully-written MDX blog posts using PubSubHubbub, Vercel Workflow Dev Kit, and GitHub Copilot Agents.
+author: sashkode
+date: 2025-12-04
+youtubeVideoId: ZoDRzqPIkmE
+---
+
+This article breaks down the complete automation pipeline that generates blog articles from YouTube videos with zero manual effort. Watch the video for the full walkthrough; this article provides the implementation details, code snippets, and GitHub permalinks to explore the actual codebase.
+
+## The Goal: Supporting Material, Not Busywork
+
+A subscriber requested easier navigation for code snippets from past videos—instead of linking to entire repositories, they wanted direct links to relevant implementations. Rather than manually writing articles for every video, the solution was to automate the entire process using AI and workflows.
+
+The result? Publish a YouTube video → receive a pull request with a complete, structured MDX blog article → review and merge. No scripts to run, no manual writing sessions.
+
+## Architecture Overview
+
+The automation pipeline consists of four main components:
+
+1. **YouTube PubSubHubbub webhook** — Triggers when a new video publishes
+2. **Vercel Workflow Dev Kit** — Orchestrates the multi-step process
+3. **GitHub Copilot Agent** — Writes the actual article
+4. **Next.js + Fumadocs** — Renders the MDX blog
+
+```
+YouTube Video Published
+         ↓
+PubSubHubbub Notification
+         ↓
+Webhook Handler (/api/webhooks/youtube)
+         ↓
+Workflow: Fetch Metadata + Transcript
+         ↓
+Create GitHub Issue (assigned to Copilot)
+         ↓
+Copilot Generates MDX Article
+         ↓
+Pull Request Ready to Merge
+```
+
+## PubSubHubbub Webhook Integration
+
+YouTube doesn't provide traditional webhooks, but it supports the [PubSubHubbub](https://github.com/pubsubhubbub/PubSubHubbub) protocol—a decentralized pub/sub standard for RSS/Atom feeds.
+
+### Setting Up the Subscription
+
+The subscription script registers the webhook endpoint with YouTube's hub:
+
+```bash title="config/youtube/subscribe.sh"
+#!/bin/bash
+
+CHANNEL_ID="${YOUTUBE_CHANNEL_ID:?'Set YOUTUBE_CHANNEL_ID environment variable'}"
+CALLBACK_URL="${WEBHOOK_CALLBACK_URL:-https://your-domain.vercel.app/api/webhooks/youtube}"
+HUB_URL="https://pubsubhubbub.appspot.com/subscribe"
+
+curl -X POST "$HUB_URL" \
+  -d "hub.callback=$CALLBACK_URL" \
+  -d "hub.topic=https://www.youtube.com/xml/feeds/videos.xml?channel_id=$CHANNEL_ID" \
+  -d "hub.verify=async" \
+  -d "hub.mode=subscribe" \
+  ${YOUTUBE_WEBHOOK_SECRET:+-d "hub.secret=$YOUTUBE_WEBHOOK_SECRET"}
+```
+
+See the [complete subscription script](https://github.com/sashkode/sashkode/blob/trunk/config/youtube/subscribe.sh) for details.
+
+**Important:** Subscriptions expire after ~10 days and need renewal. Consider setting up a cron job to run this periodically.
+
+### Webhook Handler Implementation
+
+The webhook endpoint handles two types of requests:
+
+1. **GET** — Hub verification (returns the challenge parameter)
+2. **POST** — New video notifications (parses Atom XML and triggers workflow)
+
+```typescript title="src/app/api/webhooks/youtube/route.ts"
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+export async function POST(request: Request) {
+  const signature = request.headers.get("X-Hub-Signature");
+  const body = await request.text();
+
+  if (!signature) {
+    return new Response("Missing signature", { status: 401 });
+  }
+
+  // Verify signature using HMAC-SHA1 with timing-safe comparison // [!code highlight]
+  const expectedSignature = `sha1=${createHmac("sha1", env.YOUTUBE_WEBHOOK_SECRET)
+    .update(body)
+    .digest("hex")}`;
+
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+
+  if (
+    signatureBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(signatureBuffer, expectedBuffer) // [!code highlight]
+  ) {
+    return new Response("Invalid signature", { status: 401 });
+  }
+
+  // Parse Atom XML to extract video ID and title
+  const videoIdMatch = body.match(/<yt:videoId>([^<]+)<\/yt:videoId>/);
+  const titleMatch = body.match(/<title>([^<]+)<\/title>/);
+
+  const videoId = videoIdMatch[1];
+  const title = titleMatch?.[1] ?? "Untitled Video";
+
+  // Trigger workflow asynchronously (don't block webhook response) // [!code highlight]
+  startVideoToArticleWorkflow(videoId).catch((error) => {
+    Logger.error(`Failed to trigger workflow for ${videoId}`, { scope: "YOUTUBE_WEBHOOK", error });
+  });
+
+  return new Response("OK", { status: 200 }); // [!code highlight]
+}
+```
+
+Key implementation details:
+
+- **Timing-safe comparison** prevents timing attacks on signature verification
+- **Top-level regex patterns** for performance (defined once, reused)
+- **Asynchronous workflow trigger** returns 200 OK immediately (webhooks must respond quickly)
+
+See the [full webhook implementation](https://github.com/sashkode/sashkode/blob/trunk/src/app/api/webhooks/youtube/route.ts).
+
+## Durable Workflow with Vercel Workflow Dev Kit
+
+The [Vercel Workflow Dev Kit](https://useworkflow.dev/) provides durable execution for long-running tasks. This is critical because YouTube's auto-generated captions may not be available immediately after publishing.
+
+### Workflow Steps
+
+The workflow consists of three main steps:
+
+```typescript title="src/features/videos/server/video-to-article.workflow.ts"
+export async function videoToArticleWorkflow(videoId: string) {
+  "use workflow";
+
+  // Step 1: Fetch video metadata from YouTube Data API
+  const metadata = await fetchVideoMetadata(videoId); // [!code highlight]
+
+  if (!metadata) {
+    throw new Error(`Failed to fetch metadata for video ${videoId}`);
+  }
+
+  // Step 2: Fetch transcript (with retry logic) // [!code highlight]
+  let transcript = await fetchTranscript(videoId);
+
+  if (!transcript) {
+    // Wait 2 hours for YouTube to process auto-captions // [!code highlight]
+    await sleep("2h"); // [!code highlight]
+    transcript = await fetchTranscript(videoId);
+  }
+
+  if (!transcript) {
+    throw new Error(`Captions unavailable for video ${videoId}`);
+  }
+
+  // Step 3: Create GitHub issue assigned to Copilot // [!code highlight]
+  const issueUrl = await createCopilotIssue({ videoId, metadata, transcript });
+
+  return { success: true, issueUrl };
+}
+```
+
+The `sleep("2h")` call is the killer feature here—the workflow pauses for 2 hours, then resumes execution automatically. This would be complex to implement manually with traditional job queues.
+
+### Starting the Workflow
+
+The workflow is triggered from the webhook handler:
+
+```typescript title="src/features/videos/server/video-to-article.workflow.ts"
+import { start } from "workflow/api";
+
+export async function startVideoToArticleWorkflow(videoId: string) {
+  const run = await start(videoToArticleWorkflow, [videoId]);
+  return { runId: run.runId };
+}
+```
+
+See the [complete workflow implementation](https://github.com/sashkode/sashkode/blob/trunk/src/features/videos/server/video-to-article.workflow.ts).
+
+## Fetching Video Metadata and Transcripts
+
+The workflow fetches data from YouTube using two different APIs:
+
+### Video Metadata (YouTube Data API)
+
+Simple REST API call with API key authentication:
+
+```typescript title="src/features/videos/server/captions.ts"
+export async function getVideoMetadata(videoId: string): Promise<VideoMetadata | null> {
+  const url = new URL(`${YOUTUBE_API_BASE}/videos`);
+  url.searchParams.set("part", "snippet");
+  url.searchParams.set("id", videoId);
+  url.searchParams.set("key", env.YOUTUBE_API_KEY); // [!code highlight]
+
+  const response = await fetch(url.toString());
+  const data = (await response.json()) as YouTubeVideoResponse;
+  const video = data.items?.[0];
+
+  if (!video) {
+    return null;
+  }
+
+  const thumbnails = video.snippet.thumbnails;
+  const thumbnailUrl = thumbnails.maxres?.url ?? thumbnails.high?.url ?? thumbnails.default?.url ?? "";
+
+  return {
+    videoId: video.id,
+    title: video.snippet.title,
+    description: video.snippet.description,
+    publishedAt: video.snippet.publishedAt,
+    channelTitle: video.snippet.channelTitle,
+    thumbnailUrl,
+  };
+}
+```
+
+### Transcript Fetching (OAuth Required)
+
+The captions API requires OAuth2 authentication with a refresh token:
+
+```typescript title="src/features/videos/server/captions.ts"
+// Cache for OAuth access token
+let cachedAccessToken: { token: string; expiresAt: number } | null = null;
+
+async function getAccessToken(): Promise<string> {
+  // Check if we have a valid cached token (with 5 min buffer) // [!code highlight]
+  if (cachedAccessToken && Date.now() < cachedAccessToken.expiresAt - 5 * 60 * 1000) {
+    return cachedAccessToken.token;
+  }
+
+  // Refresh the token // [!code highlight]
+  const response = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: env.YOUTUBE_CLIENT_ID,
+      client_secret: env.YOUTUBE_CLIENT_SECRET,
+      refresh_token: env.YOUTUBE_REFRESH_TOKEN, // [!code highlight]
+      grant_type: "refresh_token",
+    }),
+  });
+
+  const data = (await response.json()) as { access_token: string; expires_in: number };
+
+  cachedAccessToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+  };
+
+  return cachedAccessToken.token;
+}
+```
+
+The OAuth flow must be completed manually once to obtain the refresh token, which is then stored in environment variables.
+
+### Caption Selection Logic
+
+The implementation prefers English captions and standard tracks over auto-generated (ASR):
+
+```typescript title="src/features/videos/server/captions.ts"
+export async function getCaptions(videoId: string): Promise<string | null> {
+  const captions = await listCaptions(videoId);
+
+  // Sort captions: prefer English, then standard over ASR // [!code highlight]
+  const sortedCaptions = [...captions].sort((a, b) => {
+    const aIsEnglish = a.snippet.language.startsWith("en") ? 0 : 1;
+    const bIsEnglish = b.snippet.language.startsWith("en") ? 0 : 1;
+    if (aIsEnglish !== bIsEnglish) {
+      return aIsEnglish - bIsEnglish;
+    }
+
+    const aIsStandard = a.snippet.trackKind === "standard" ? 0 : 1;
+    const bIsStandard = b.snippet.trackKind === "standard" ? 0 : 1;
+    return aIsStandard - bIsStandard;
+  });
+
+  const bestCaption = sortedCaptions[0];
+  const srtContent = await downloadCaption(bestCaption.id);
+  
+  return parseSrt(srtContent); // [!code highlight]
+}
+```
+
+The `parseSrt` function converts SRT format to plain text by filtering out timing codes and sequence numbers.
+
+See the [full caption fetching implementation](https://github.com/sashkode/sashkode/blob/trunk/src/features/videos/server/captions.ts).
+
+## Creating the GitHub Issue
+
+The workflow creates a GitHub issue using the GraphQL API and assigns it to the Copilot agent:
+
+```typescript title="src/features/videos/server/github-issue.ts"
+export async function createGitHubIssue(data: {
+  videoId: string;
+  metadata: VideoMetadata;
+  transcript: string;
+}): Promise<string> {
+  const { videoId, metadata } = data;
+
+  // Idempotency check: see if an issue already exists // [!code highlight]
+  const existingIssue = await findExistingIssue(videoId);
+  if (existingIssue) {
+    return existingIssue.url;
+  }
+
+  // Get repository ID
+  const repositoryId = await getRepositoryId();
+
+  // Generate issue content
+  const title = `📝 Write Article: ${metadata.title}`;
+  const body = generateIssueBody(data); // [!code highlight]
+
+  // Create the issue
+  const issue = await createIssue(repositoryId, title, body);
+
+  // Assign to Copilot agent // [!code highlight]
+  const copilotAgentId = await getCopilotAgentId();
+
+  if (copilotAgentId) {
+    await assignIssue(issue.id, copilotAgentId); // [!code highlight]
+  }
+
+  return issue.url;
+}
+```
+
+### Issue Template Structure
+
+The issue body includes everything Copilot needs:
+
+```typescript title="src/features/videos/server/github-issue.ts"
+function generateIssueBody(data: {
+  videoId: string;
+  metadata: VideoMetadata;
+  transcript: string;
+}): string {
+  const { videoId, metadata, transcript } = data;
+  const publishDate = new Date(metadata.publishedAt).toISOString().split("T")[0];
+  const slug = toKebabCase(metadata.title); // [!code highlight]
+
+  return `## 🎬 Write Blog Article for YouTube Video
+
+**Video ID:** ${videoId}
+**Title:** ${metadata.title}
+**Published:** ${publishDate}
+
+### Agent Instructions
+
+Follow the instructions in \`.github/copilot/agents/article-writer.md\` for complete guidance.
+
+**Key principles:**
+- Create **supporting material**, not a transcript
+- **Explore the repository** for related code
+- Use **GitHub permalinks** to \`trunk\` branch
+
+### Output
+
+Create a blog article at \`content/videos/${slug}.mdx\`
+
+### Video Description
+
+\`\`\`
+${metadata.description}
+\`\`\`
+
+### Full Transcript
+
+\`\`\`
+${transcript}
+\`\`\`
+`;
+}
+```
+
+The `toKebabCase` utility converts the video title into a URL-friendly slug:
+
+```typescript title="src/utils/shared/kebab-case.ts"
+export function toKebabCase(input: string): string {
+  return input
+    .replace(/([a-z\d])([A-Z])/g, "$1-$2") // Insert hyphen before uppercase
+    .replace(/[_\s]+/g, "-") // Replace underscores and spaces
+    .replace(/[^a-zA-Z0-9-]/g, "") // Remove non-alphanumeric
+    .toLowerCase()
+    .replace(/-+/g, "-") // Remove consecutive hyphens
+    .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
+}
+```
+
+See the [GitHub issue creation implementation](https://github.com/sashkode/sashkode/blob/trunk/src/features/videos/server/github-issue.ts) and [kebab-case utility](https://github.com/sashkode/sashkode/blob/trunk/src/utils/shared/kebab-case.ts).
+
+### Finding the Copilot Agent
+
+The implementation searches for Copilot in the repository's suggested actors:
+
+```typescript title="src/features/videos/server/github-issue.ts"
+async function getCopilotAgentId(): Promise<string | null> {
+  const query = `
+    query GetSuggestedActors($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name) {
+        suggestedActors(first: 100, capabilities: CAN_BE_ASSIGNED) { // [!code highlight]
+          nodes {
+            login
+            ... on User { id }
+            ... on Bot { id }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await graphql<SuggestedActorsResponse>(query, {
+    owner: REPO_OWNER,
+    name: REPO_NAME,
+  });
+
+  // Find the Copilot agent (case-insensitive search) // [!code highlight]
+  const copilotAgent = data.repository.suggestedActors.nodes.find((actor) => {
+    const login = actor.login.toLowerCase();
+    return actor.id && (login.includes("copilot") || login === "copilot-swe-agent");
+  });
+
+  return copilotAgent?.id ?? null;
+}
+```
+
+### Assignment Using replaceActorsForAssignable
+
+Using `replaceActorsForAssignable` mutation is more reliable for triggering the Copilot coding agent:
+
+```typescript title="src/features/videos/server/github-issue.ts"
+async function assignIssue(issueId: string, assigneeId: string): Promise<void> {
+  const mutation = `
+    mutation ReplaceActors($issueId: ID!, $actorIds: [ID!]!) {
+      replaceActorsForAssignable(input: { // [!code highlight]
+        assignableId: $issueId
+        actorIds: $actorIds
+      }) {
+        assignable {
+          ... on Issue {
+            id
+            assignees(first: 10) {
+              nodes { login }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  await graphql<ReplaceActorsResponse>(mutation, {
+    issueId,
+    actorIds: [assigneeId],
+  });
+}
+```
+
+## GitHub Copilot Agent Instructions
+
+The agent receives detailed instructions from `.github/copilot/agents/article-writer.md`:
+
+**Philosophy:**
+- Create **supporting material**, not transcription
+- Link to **actual implementation** using GitHub permalinks
+- **Explore beyond the transcript** for related utilities and types
+- Emphasize **code snippets** with explanations
+
+**Code Block Features:**
+- Add `title="path/to/file.ts"` for file context
+- Use `// [!code ++]` for additions, `// [!code --]` for removals
+- Use `// [!code highlight]` for emphasis
+- Use `tab="filename.tsx"` for multi-file examples
+
+See the [complete agent instructions](https://github.com/sashkode/sashkode/blob/trunk/.github/copilot/agents/article-writer.md).
+
+## Rendering MDX with Fumadocs
+
+The blog uses [Fumadocs](https://fumadocs.dev/)—an open-source MDX documentation framework with excellent code highlighting and navigation features.
+
+### Fumadocs Source Configuration
+
+The source config defines the content schema and MDX processing options:
+
+```typescript title="config/fumadocs/source.config.ts"
+import { remarkMdxFiles } from "fumadocs-core/mdx-plugins";
+import { applyMdxPreset, defineCollections, frontmatterSchema } from "fumadocs-mdx/config";
+import { z } from "zod";
+
+import { auraTheme } from "../../src/features/videos/shared/aura-theme";
+
+export const videos = defineCollections({
+  type: "doc",
+  dir: "content/videos", // [!code highlight]
+  schema: frontmatterSchema.extend({
+    author: z.string(),
+    date: z.string().date().or(z.date()),
+    youtubeVideoId: z.string(), // [!code highlight]
+  }),
+  mdxOptions: applyMdxPreset({
+    preset: "fumadocs",
+    remarkPlugins: [remarkMdxFiles],
+    rehypeCodeOptions: {
+      themes: {
+        light: auraTheme, // [!code highlight]
+        dark: auraTheme,
+      },
+    },
+  }),
+});
+```
+
+See the [Fumadocs configuration](https://github.com/sashkode/sashkode/blob/trunk/config/fumadocs/source.config.ts).
+
+### MDX Components
+
+Custom MDX components provide rich formatting:
+
+```tsx title="src/features/videos/shared/mdx-components.tsx"
+import { CodeBlock, Pre } from "fumadocs-ui/components/codeblock";
+import { File, Files, Folder } from "fumadocs-ui/components/files";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import type { MDXComponents } from "mdx/types";
+
+export function getMDXComponents(components: MDXComponents): MDXComponents {
+  return {
+    ...components,
+    pre: ({ children, ...props }: ComponentProps<"pre">) => (
+      <CodeBlock keepBackground={true} {...props}> {/* [!code highlight] */}
+        <Pre>{children}</Pre>
+      </CodeBlock>
+    ),
+    Tab,
+    Tabs,
+    File,
+    Files,
+    Folder,
+  };
+}
+```
+
+### Video Detail Page
+
+The page component renders the MDX with embedded YouTube player:
+
+```tsx title="src/video/server/video-detail-page.tsx"
+export const VideoDetailPage = Page.create({
+  path: "/videos/[slug]",
+  name: "video",
+}).page(async ({ getPathParams }) => {
+  const { slug } = await getPathParams();
+  const page = videos.getPage([slug]); // [!code highlight]
+
+  if (!page) {
+    notFound();
+  }
+
+  const MDX = page.data.body; // [!code highlight]
+  const components = getMDXComponents({});
+  const toc = page.data.toc;
+
+  return (
+    <div className="flex min-h-screen justify-center">
+      <div className="flex w-full max-w-6xl gap-8">
+        <article className="flex-1">
+          <header>
+            <h1>{page.data.title}</h1>
+            
+            {/* Embedded YouTube player */} {/* [!code highlight] */}
+            <div className="aspect-video rounded-xl overflow-hidden">
+              <iframe
+                src={`https://www.youtube.com/embed/${page.data.youtubeVideoId}`} {/* [!code highlight] */}
+                title={page.data.title}
+                allowFullScreen
+              />
+            </div>
+          </header>
+
+          {/* Render MDX content */} {/* [!code highlight] */}
+          <div className="prose dark:prose-invert">
+            <MDX components={components} /> {/* [!code highlight] */}
+          </div>
+        </article>
+
+        <TableOfContents items={toc} hasVideo={true} /> {/* [!code highlight] */}
+      </div>
+    </div>
+  );
+});
+```
+
+See the [video detail page implementation](https://github.com/sashkode/sashkode/blob/trunk/src/video/server/video-detail-page.tsx).
+
+## Structured Logging
+
+The codebase uses a custom Pino logger wrapper with scoped, structured logging:
+
+```typescript title="src/platform/server/logger.ts"
+export const Logger = createLogger();
+
+// Usage in webhook handler
+Logger.info(`Received webhook for video: ${title}`, {
+  scope: "YOUTUBE_WEBHOOK", // [!code highlight]
+  videoId,
+});
+
+// Usage in workflow
+Logger.info("Video metadata fetched", {
+  scope: "VIDEO_WORKFLOW", // [!code highlight]
+  videoId,
+  title: metadata?.title,
+});
+```
+
+The logger provides:
+- **Correlation IDs** for request tracking
+- **Scope-based organization** (e.g., `YOUTUBE_WEBHOOK`, `VIDEO_WORKFLOW`, `GITHUB_ISSUE`)
+- **Pretty formatting** in development with color-coded output
+- **Structured JSON** in production for log aggregation
+
+See the [logger implementation](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/logger.ts).
+
+## Why This Automation Matters
+
+This workflow demonstrates how small automations compound into massive productivity gains:
+
+**Before:**
+1. Publish video
+2. Write article outline
+3. Find code snippets
+4. Create GitHub permalinks
+5. Write explanatory text
+6. Format MDX
+7. Test locally
+8. Commit and deploy
+
+**After:**
+1. Publish video
+2. Merge PR
+
+The entire content creation pipeline runs on autopilot. The human review step ensures quality, but the heavy lifting—fetching data, finding relevant code, writing structured content—happens automatically.
+
+## What Could Go Wrong?
+
+The video title is tongue-in-cheek, but there are legitimate considerations:
+
+**Potential Issues:**
+- **Transcript unavailable** — Some videos may not have auto-captions enabled
+- **Copilot hallucinations** — The agent might reference non-existent code
+- **Rate limits** — GitHub API, YouTube API, and Copilot have rate limits
+- **Subscription expiry** — PubSubHubbub subscriptions expire every ~10 days
+- **Token refresh failures** — OAuth refresh tokens can expire or be revoked
+
+**Mitigations:**
+- **Idempotency checks** in workflow and issue creation
+- **Error handling** with structured logging
+- **Manual review** before merging PR
+- **Fallback to manual creation** if automation fails
+
+The workflow isn't perfect, but it doesn't need to be—it just needs to work most of the time and fail gracefully when it doesn't.
+
+## Related Code
+
+Explore the complete implementation:
+
+- [Webhook handler](https://github.com/sashkode/sashkode/blob/trunk/src/app/api/webhooks/youtube/route.ts) — PubSubHubbub endpoint
+- [Video-to-article workflow](https://github.com/sashkode/sashkode/blob/trunk/src/features/videos/server/video-to-article.workflow.ts) — Durable workflow orchestration
+- [Caption fetching](https://github.com/sashkode/sashkode/blob/trunk/src/features/videos/server/captions.ts) — YouTube Data API integration
+- [GitHub issue creation](https://github.com/sashkode/sashkode/blob/trunk/src/features/videos/server/github-issue.ts) — GraphQL mutations for issue creation
+- [Subscription script](https://github.com/sashkode/sashkode/blob/trunk/config/youtube/subscribe.sh) — PubSubHubbub setup
+- [Fumadocs config](https://github.com/sashkode/sashkode/blob/trunk/config/fumadocs/source.config.ts) — MDX processing configuration
+- [Video detail page](https://github.com/sashkode/sashkode/blob/trunk/src/video/server/video-detail-page.tsx) — Article rendering
+- [Logger utility](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/logger.ts) — Structured logging
+- [Kebab-case utility](https://github.com/sashkode/sashkode/blob/trunk/src/utils/shared/kebab-case.ts) — Slug generation
+
+## Further Reading
+
+- [YouTube Data API Documentation](https://developers.google.com/youtube/v3)
+- [PubSubHubbub Protocol](https://github.com/pubsubhubbub/PubSubHubbub)
+- [Vercel Workflow Dev Kit](https://useworkflow.dev/)
+- [GitHub Copilot Agents](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-a-pr)
+- [Fumadocs](https://fumadocs.dev/)
+- [Next.js MDX](https://nextjs.org/docs/app/building-your-application/configuring/mdx)
+
+## Conclusion
+
+This automation pipeline shows what's possible when you combine modern tools:
+
+✅ **Durable workflows** handle long-running tasks and retries  
+✅ **AI agents** generate structured content from transcripts  
+✅ **Git-based content** integrates seamlessly with CI/CD  
+✅ **MDX rendering** provides rich, interactive documentation  
+
+The result is a self-updating content system: YouTube in → polished MDX out, with zero manual effort between publish and review.
+
+Small automations compound. This workflow saves hours per video, improves consistency, and ensures supporting materials are always available for viewers who want to dig into the code.
+
+Watch the video to see the entire system in action. This article gives you the implementation details to build your own automated content pipeline.
