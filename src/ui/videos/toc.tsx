@@ -56,7 +56,7 @@ function TOCLink({ item }: { item: TOCItemType }) {
     // For video link, scroll to top of page to show title
     if (targetId === "video") {
       window.scrollTo({ top: 0, behavior: "smooth" });
-      window.history.pushState(null, "", item.url);
+      window.history.replaceState(null, "", item.url);
       return;
     }
 
@@ -64,7 +64,7 @@ function TOCLink({ item }: { item: TOCItemType }) {
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
       // Update URL hash without triggering scroll
-      window.history.pushState(null, "", item.url);
+      window.history.replaceState(null, "", item.url);
     }
   };
 
