@@ -1,0 +1,598 @@
+---
+title: Why I'm NOT switching to TanStack Start - Type safety in Next.js
+description: Achieve TanStack Start's developer experience in Next.js with typed routes, validated search params, and type-safe server actions using next-safe-action and custom utilities.
+author: sashkode
+date: 2025-11-27
+youtubeVideoId: iS45VpqEasA
+---
+
+TanStack Start has been making waves with its batteries-included approach to type safety—typed routes, validated loaders, and type-safe server functions. But before you migrate your Next.js codebase, you should know: **you can achieve the same developer experience in Next.js** with a few key utilities.
+
+This article breaks down the type safety features that make TanStack Start compelling, and shows you how to replicate them in Next.js using `next-safe-action` and a custom `next-safe-page` utility. The video walks through these concepts; this article provides the complete implementation details.
+
+## The Type Safety Comparison
+
+When comparing TanStack Start to Next.js, the gap appears significant. TanStack's comparison table shows Next.js lacking path param validation, type-safe search params, and validated server functions. But these gaps are addressable—Next.js provides the foundation, and you bring the structure.
+
+The real difference? **TanStack Start is batteries-included; Next.js is bring-your-own-batteries.** This mirrors the React vs. Angular debate—flexibility vs. convention. Next.js gives you room to build the exact DX you want.
+
+## Typed Routes in Next.js
+
+Next.js supports typed routes through the `typedRoutes` config flag (now stable, previously experimental):
+
+```typescript title="next.config.ts"
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  typedRoutes: true, // [!code highlight]
+};
+
+export default nextConfig;
+```
+
+See the [full configuration](https://github.com/sashkode/sashkode/blob/trunk/next.config.ts#L20-L21) in this repository.
+
+With `typedRoutes` enabled, Next.js generates types based on your file-based routing. This provides:
+
+1. **IntelliSense for Link components** — autocomplete for valid routes
+2. **Route-aware type helpers** — `PageProps` with typed path params
+
+### Using Route Types in Pages
+
+You can extract typed path params using the generated `PageProps` type:
+
+```tsx title="app/test/[slug]/page.tsx"
+import type { PageProps } from "next/types/page";
+
+export default async function TestPage({
+  params,
+}: PageProps<"/test/[slug]">) {
+  const { slug } = await params; // `slug` is typed as string // [!code highlight]
+  return <div>Slug: {slug}</div>;
+}
+```
+
+The `PageProps` type accepts your route path as a type parameter and provides correctly typed `params` and `searchParams`.
+
+### Limitations of Next.js Link Types
+
+The `Link` component's `href` prop provides autocomplete for static routes, but has a critical limitation:
+
+```tsx title="app/test/[slug]/page.tsx"
+import Link from "next/link";
+
+export default function TestPage() {
+  return (
+    <Link href="/test/some-slug">
+      {/* Works, but href accepts generic `string` for dynamic routes */}
+    </Link>
+  );
+}
+```
+
+Next.js knows some routes have dynamic segments, so it allows `href` to be any `string`. This means you lose type safety for the dynamic parts.
+
+**TanStack Start wins here**—their `Link` component requires you to pass `params` separately:
+
+```tsx
+<Link to="/test/$slug" params={{ slug: "my-slug" }}>
+  {/* params are type-checked */}
+</Link>
+```
+
+But you can build this for Next.js. Keep reading.
+
+## Type-Safe Search Parameters
+
+Next.js doesn't provide type safety or validation for search params out of the box. By default, `searchParams` is:
+
+```typescript
+type SearchParams = Record<string, string | string[] | undefined>;
+```
+
+Generic and unvalidated. TanStack Start, on the other hand, lets you define search param schemas at the route level:
+
+```tsx
+// TanStack Start
+const route = createRoute({
+  path: '/products',
+  validateSearch: z.object({
+    page: z.number().default(1),
+    sort: z.enum(['asc', 'desc']).default('asc'),
+  }),
+});
+```
+
+Then you can call `useSearch()` to get fully typed, validated search params in your components.
+
+### Building Type-Safe Search Params in Next.js
+
+This repository includes a custom `Page.create()` API that provides the same capabilities. Here's the usage:
+
+```tsx title="app/products/page.tsx"
+import { Page } from "~/platform/server/safe-page";
+import { z } from "zod";
+
+export default Page.create({
+  path: "/products",
+  name: "products-list",
+})
+  .searchParamsSchema(
+    {
+      page: z.coerce.number().min(1).default(1),
+      sort: z.enum(["asc", "desc"]).default("asc"),
+    },
+    ({ errors }) => (
+      <div>
+        <h1>Invalid Search Parameters</h1>
+        <pre>{JSON.stringify(errors, null, 2)}</pre>
+      </div>
+    )
+  )
+  .page(async ({ getSearchParams }) => {
+    const { page, sort } = await getSearchParams(); // Fully typed! // [!code highlight]
+    return <div>Page {page}, Sort: {sort}</div>;
+  });
+```
+
+The `searchParamsSchema` method accepts:
+1. A Zod schema (or raw shape)
+2. An optional validation error fallback component
+
+When you provide a fallback, the page receives `getSearchParams()` which returns the validated data directly—no need to check `success` flags. If validation fails, the fallback renders instead.
+
+Without a fallback, you get `parseSearchParams()` which returns a discriminated union:
+
+```tsx
+.page(async ({ parseSearchParams }) => {
+  const result = await parseSearchParams();
+  
+  if (!result.success) {
+    return <ErrorPage errors={result.errors} />;
+  }
+  
+  const { page, sort } = result.searchParams; // Typed!
+  return <ProductList page={page} sort={sort} />;
+})
+```
+
+### Implementation Deep Dive
+
+The magic happens in the [`safe-page.tsx`](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/safe-page.tsx) implementation. Key features:
+
+- **Schema-aware coercion** — Converts URL strings to booleans, numbers, arrays, and enums before validation
+- **Context providers** — Makes search params accessible in child components via `usePage()` hook
+- **Typed page props** — Fluent API with TypeScript generics for full type safety
+
+The schema-aware preprocessing happens in [`search-params.ts`](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/search-params.ts#L152-L177):
+
+```typescript title="src/platform/server/search-params.ts"
+const processField = (value: unknown, schemaField: { _def?: { typeName?: string; values?: unknown[] } }): unknown => {
+  const typeName = schemaField._def?.typeName;
+  if (!typeName) return value;
+
+  switch (typeName) {
+    case "ZodBoolean":
+      return coerceToBoolean(value); // "true", "1", "yes" → true
+    case "ZodArray":
+      return Array.isArray(value) ? value : [value];
+    case "ZodNumber": {
+      const numValue = coerceToNumber(value);
+      return numValue !== undefined ? numValue : value;
+    }
+    case "ZodEnum": {
+      const enumValues = schemaField._def?.values;
+      if (Array.isArray(enumValues)) {
+        return coerceToEnum(value, enumValues) ?? value; // Case-insensitive matching
+      }
+      return value;
+    }
+    default:
+      return value;
+  }
+};
+```
+
+This preprocessing makes validation more user-friendly—URLs like `?active=true&page=2` work seamlessly with boolean and number schemas.
+
+## Type-Safe Server Actions
+
+Next.js server actions are Remote Procedure Calls (RPCs)—you call them directly from client code with typed arguments. But Next.js doesn't provide input validation or standardized error handling out of the box.
+
+TanStack Start's `createServerFn` provides a factory pattern with built-in validation:
+
+```tsx
+// TanStack Start
+const updateUser = createServerFn()
+  .validator(z.object({ email: z.string().email() }))
+  .handler(async ({ data }) => {
+    // `data` is validated
+    return updateUserInDb(data);
+  });
+```
+
+### Using next-safe-action
+
+The [`next-safe-action`](https://next-safe-action.dev/) library provides nearly identical functionality for Next.js:
+
+```typescript
+import { createSafeActionClient } from "next-safe-action";
+import { z } from "zod";
+
+const action = createSafeActionClient()
+  .schema(z.object({ email: z.string().email() }))
+  .action(async ({ parsedInput }) => {
+    // `parsedInput.email` is validated and typed
+    return { success: true };
+  });
+```
+
+This repository wraps `next-safe-action` with additional logging and error handling. See [`server-action.ts`](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/server-action.ts):
+
+```typescript title="src/platform/server/server-action.ts"
+export const ServerAction = {
+  create: <T extends string>(metadata: ActionMetadata<T>) =>
+    createSafeActionClient({
+      defineMetadataSchema: () => metadataSchema,
+      handleServerError: (e, utils) => {
+        const { clientInput, ctx } = utils;
+        const actionLogger = ctx.logger;
+
+        if (e instanceof ServerError) {
+          // Known errors - return message to client
+          actionLogger.debug(`Caught a known server error: ${e.message}`);
+          return e.message;
+        }
+        
+        // Unknown errors - log details, return generic message
+        actionLogger.error("Caught an unknown server error!", {
+          errorType: e.constructor.name,
+          stack: e.stack,
+        });
+        return "An unexpected error occurred. Please try again later.";
+      },
+      defaultValidationErrorsShape: "flattened",
+    })
+      .metadata(metadata)
+      .use(({ next }) => {
+        const actionLogger = Logger.child({ 
+          scope: "SERVER_ACTION", 
+          topic: metadata.name 
+        });
+        return next({ ctx: { logger: actionLogger } });
+      }),
+};
+```
+
+Usage in your application:
+
+```typescript title="app/actions.ts"
+"use server";
+
+import { ServerAction } from "~/platform/server/server-action";
+import { z } from "zod";
+
+export const updateEmail = ServerAction.create({ name: "update-email" })
+  .schema(z.object({ email: z.string().email() }))
+  .action(async ({ parsedInput, ctx }) => {
+    ctx.logger.info("Updating email");
+    // parsedInput.email is validated
+    return { success: true };
+  });
+```
+
+The wrapper provides:
+- **Automatic logging** with request IDs and execution timing
+- **Structured error handling** with custom `ServerError` class
+- **Middleware support** for authentication, rate limiting, etc.
+
+### Custom Error Handling
+
+The `ServerError` class lets you throw known errors with HTTP-like error codes:
+
+```typescript title="src/platform/server/server-action.ts"
+export class ServerError extends Error {
+  readonly code?: string;
+  readonly errorCode: ErrorCode;
+  readonly context?: Record<string, unknown>;
+
+  constructor(
+    message: string,
+    options?: {
+      errorCode?: ErrorCode;
+      context?: Record<string, unknown>;
+    }
+  ) {
+    super(message);
+    this.name = "ServerError";
+    this.errorCode = options?.errorCode ?? ErrorCode.INTERNAL_SERVER_ERROR;
+    this.context = options?.context;
+  }
+}
+```
+
+Usage:
+
+```typescript
+if (!user) {
+  throw new ServerError("User not found", {
+    errorCode: ErrorCode.NOT_FOUND,
+    context: { userId },
+  });
+}
+```
+
+Known errors (instances of `ServerError`) are logged at debug level and their messages are returned to the client. Unknown errors are logged at error level with full details, but only a generic message reaches the client.
+
+## Typed Links with SubdomainLink
+
+The repository includes a custom `SubdomainLink` component that provides TanStack-style typed navigation with params:
+
+```tsx title="src/platform/client/components/subdomain-link.tsx"
+<SubdomainLink
+  subdomain="blog"
+  pathname="/posts/[slug]"
+  params={{ slug: "my-post" }} // Type-checked! // [!code highlight]
+>
+  Read Post
+</SubdomainLink>
+```
+
+The component:
+1. **Extracts route types** from Next.js's generated types
+2. **Requires params** for dynamic segments
+3. **Provides autocomplete** for subdomain and pathname
+
+See the [full implementation](https://github.com/sashkode/sashkode/blob/trunk/src/platform/client/components/subdomain-link.tsx).
+
+### Type-Safe Params Enforcement
+
+The type magic happens through mapped types:
+
+```typescript title="src/platform/client/components/subdomain-link.tsx"
+type ParamsFor<
+  Subdomain extends string | undefined,
+  Pathname extends string
+> = ReconstructRoute<Subdomain, Pathname> extends keyof ParamMap
+  ? ParamMap[ReconstructRoute<Subdomain, Pathname> & keyof ParamMap]
+  : never;
+
+type SubdomainLinkProps<
+  Subdomain extends string | undefined,
+  Pathname extends string
+> = {
+  subdomain?: Subdomain;
+  pathname?: Pathname;
+} & (keyof ParamsFor<Subdomain, Pathname> extends never
+  ? { params?: undefined }
+  : { params: ParamsFor<Subdomain, Pathname> }); // Required if params exist // [!code highlight]
+```
+
+If the pathname has dynamic segments, `params` becomes a required prop. TypeScript enforces this at compile time.
+
+## Client-Side Page Context with usePage()
+
+Components inside a page can access validated search params via the `usePage()` hook:
+
+```tsx title="components/FilterPanel.tsx"
+"use client";
+
+import { usePage } from "~/platform/client/hooks/use-page";
+
+export function FilterPanel() {
+  const { searchParams } = usePage<typeof ProductsPage>();
+  
+  // searchParams is fully typed based on the page's schema
+  return <div>Current page: {searchParams.page}</div>;
+}
+```
+
+The hook provides:
+- **Type-safe search params** from the page's schema
+- **Navigation helpers** — `pushSearchParams()`, `replaceSearchParams()`, `buildSearchParamsUrl()`
+- **Page metadata** — `name` and `path` for the current page
+
+See the [complete implementation](https://github.com/sashkode/sashkode/blob/trunk/src/platform/client/hooks/use-page.tsx).
+
+### Navigation with Type Safety
+
+The navigation helpers accept typed params:
+
+```tsx
+const { pushSearchParams } = usePage<typeof ProductsPage>();
+
+// Type-safe: only accepts keys from the schema
+pushSearchParams({ 
+  page: 2, 
+  sort: "desc" 
+});
+
+// Merge modes: "replace", "merge", "merge-arrays"
+pushSearchParams({ page: 3 }, "merge"); // Keeps other params
+```
+
+Three modes control how new params combine with existing ones:
+- `replace` — Replace entire query string
+- `merge` — Override specific keys (default)
+- `merge-arrays` — Append values to array params
+
+## Validation Error Fallbacks
+
+When using the fallback pattern, components can access validation errors via `usePageContext()`:
+
+```tsx title="components/ErrorBanner.tsx"
+"use client";
+
+import { usePageContext } from "~/platform/client/hooks/use-page";
+
+export function ErrorBanner() {
+  const result = usePageContext<typeof ProductsPage>();
+  
+  if (result.isValidationError) {
+    return (
+      <div>
+        <h2>Invalid Parameters</h2>
+        <pre>{JSON.stringify(result.validationErrors, null, 2)}</pre>
+      </div>
+    );
+  }
+  
+  return <div>Page: {result.searchParams.page}</div>;
+}
+```
+
+The `usePageContext()` hook returns a discriminated union:
+- `isValidationError: false` — Rendered in the page context, `searchParams` available
+- `isValidationError: true` — Rendered in the fallback, `validationErrors` available
+
+## The Flexibility vs. Batteries Debate
+
+This situation mirrors the React vs. Angular debate from years ago. Angular came batteries-included with routing, forms, HTTP, and dependency injection. React gave you components and state—bring your own everything else.
+
+React won because **flexibility matters**. Developers wanted to choose their router (React Router, Reach Router, Next.js), their state library (Redux, MobX, Zustand), and their data fetching strategy.
+
+The same logic applies to TanStack Start vs. Next.js:
+
+- **TanStack Start** — Batteries included, one way to do things, great DX out of the box
+- **Next.js** — Platform and foundation, you build the exact DX you want
+
+Neither is inherently better. It depends on:
+- **Team preferences** — Do you want conventions or choices?
+- **Project scale** — Large teams benefit from standardization
+- **Ecosystem maturity** — Next.js has years of battle-tested libraries
+
+In Next.js, you can use:
+- **next-safe-action** for server actions
+- **tRPC** for end-to-end type safety
+- **React Query** for client state
+- **Custom utilities** like `Page.create()` for search params
+
+You're not locked into a framework's choices. You assemble the stack that fits your needs.
+
+## What Next.js Still Needs
+
+TanStack Start has advantages that Next.js can't easily replicate:
+
+1. **Integrated loaders with suspense** — TanStack's loader API with streaming is elegant
+2. **Standardized middleware** — Built-in auth, validation, and error boundaries
+3. **Unified API surface** — Everything is cohesive because it's designed together
+
+Next.js is catching up—React Server Components provide a foundation for data fetching with streaming, and the ecosystem is building higher-level abstractions.
+
+But Next.js has production advantages:
+- **Mature edge runtime** with Vercel's global network
+- **Image optimization** and asset handling
+- **Incremental Static Regeneration** for hybrid rendering
+- **Years of production hardening** at massive scale
+
+## Complete Example: Typed Product Listing
+
+Here's a complete page using all the utilities:
+
+```tsx title="app/products/page.tsx"
+import { Page } from "~/platform/server/safe-page";
+import { z } from "zod";
+
+const schema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  category: z.enum(["electronics", "clothing", "books"]).optional(),
+  sort: z.enum(["price", "name", "date"]).default("name"),
+  order: z.enum(["asc", "desc"]).default("asc"),
+});
+
+export default Page.create({
+  path: "/products",
+  name: "products-list",
+})
+  .searchParamsSchema(schema, ({ errors }) => (
+    <div className="error-page">
+      <h1>Invalid Search Parameters</h1>
+      <p>Please check your URL and try again.</p>
+      <pre>{JSON.stringify(errors, null, 2)}</pre>
+    </div>
+  ))
+  .page(async ({ getSearchParams, logger }) => {
+    const { page, category, sort, order } = await getSearchParams();
+    
+    logger.info("Loading products", { page, category, sort, order });
+    
+    const products = await fetchProducts({ page, category, sort, order });
+    
+    return (
+      <div>
+        <h1>Products</h1>
+        <ProductFilters />
+        <ProductGrid products={products} />
+        <Pagination currentPage={page} />
+      </div>
+    );
+  });
+```
+
+Client components can access the context:
+
+```tsx title="components/ProductFilters.tsx"
+"use client";
+
+import { usePage } from "~/platform/client/hooks/use-page";
+import type ProductsPage from "../page";
+
+export function ProductFilters() {
+  const { searchParams, replaceSearchParams } = usePage<typeof ProductsPage>();
+  
+  return (
+    <div>
+      <select
+        value={searchParams.sort}
+        onChange={(e) => replaceSearchParams({ sort: e.target.value })}
+      >
+        <option value="price">Price</option>
+        <option value="name">Name</option>
+        <option value="date">Date</option>
+      </select>
+      
+      <select
+        value={searchParams.order}
+        onChange={(e) => replaceSearchParams({ order: e.target.value })}
+      >
+        <option value="asc">Ascending</option>
+        <option value="desc">Descending</option>
+      </select>
+    </div>
+  );
+}
+```
+
+## Related Code
+
+Explore the complete implementation in the repository:
+
+- [`src/platform/server/safe-page.tsx`](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/safe-page.tsx) — Type-safe page builder
+- [`src/platform/server/search-params.ts`](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/search-params.ts) — Search param validation and coercion
+- [`src/platform/server/server-action.ts`](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/server-action.ts) — Server action wrapper
+- [`src/platform/client/hooks/use-page.tsx`](https://github.com/sashkode/sashkode/blob/trunk/src/platform/client/hooks/use-page.tsx) — Client-side page context
+- [`src/platform/client/components/subdomain-link.tsx`](https://github.com/sashkode/sashkode/blob/trunk/src/platform/client/components/subdomain-link.tsx) — Typed link component
+- [`next.config.ts`](https://github.com/sashkode/sashkode/blob/trunk/next.config.ts) — Next.js configuration with `typedRoutes`
+
+## Further Reading
+
+- [Next.js Typed Routes Documentation](https://nextjs.org/docs/app/api-reference/config/next-config-js/typedRoutes)
+- [next-safe-action](https://next-safe-action.dev/) — Type-safe server actions
+- [TanStack Start](https://tanstack.com/start) — Full-stack React framework
+- [Zod](https://zod.dev/) — TypeScript-first schema validation
+
+## Conclusion
+
+You don't need to abandon Next.js to get the type safety and DX that TanStack Start offers. With the right utilities, you can achieve:
+
+✅ Typed routes with IntelliSense  
+✅ Validated search parameters with Zod schemas  
+✅ Type-safe server actions with error handling  
+✅ Client-side context for search params  
+✅ Navigation helpers with type safety  
+
+The choice between TanStack Start and Next.js isn't about capabilities—it's about philosophy. Do you want conventions or choices? Batteries included or bring-your-own-batteries?
+
+For teams with large Next.js codebases, these utilities provide a migration path to better type safety without rewriting everything. For new projects, you can start with this foundation and iterate on it.
+
+The video shows these concepts in action. This article gives you the implementation details to build your own type-safe Next.js application.
