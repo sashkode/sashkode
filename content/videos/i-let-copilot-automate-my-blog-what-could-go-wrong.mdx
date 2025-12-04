@@ -103,6 +103,10 @@ export async function POST(request: Request) {
   const videoIdMatch = body.match(/<yt:videoId>([^<]+)<\/yt:videoId>/);
   const titleMatch = body.match(/<title>([^<]+)<\/title>/);
 
+  if (!videoIdMatch?.[1]) { // [!code highlight]
+    return new Response("Missing video ID in feed", { status: 400 }); // [!code highlight]
+  } // [!code highlight]
+
   const videoId = videoIdMatch[1];
   const title = titleMatch?.[1] ?? "Untitled Video";
 
