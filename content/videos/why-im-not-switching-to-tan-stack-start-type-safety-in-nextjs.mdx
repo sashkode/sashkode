@@ -537,7 +537,7 @@ Client components can access the context:
 
 import { usePage } from "~/platform/client/hooks/use-page";
 // Import the page type - adjust path based on your file structure
-import type ProductsPage from "@/app/products/page";
+import type ProductsPage from "~/app/products/page";
 
 export function ProductFilters() {
   const { searchParams, replaceSearchParams } = usePage<typeof ProductsPage>();
