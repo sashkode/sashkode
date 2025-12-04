@@ -76,10 +76,10 @@ return {
 
 **Key details:**
 
-1. **`source` regex**: Excludes Next.js internal paths (`_next`, `_static`), API routes, and static files
-2. **`has` condition**: Matches requests with a subdomain in the hostname
-3. **`missing` condition**: Ensures `root` isn't treated as a subdomain (it's reserved for the main domain)
-4. **`destination`**: Rewrites to `/:subdomain/:path` or `/root/:path`
+1. **`source` regex**: Excludes Next.js internal paths (`_next`, `_static`), API routes (`api`), Vercel internals (`_vercel`), well-known URIs (`.well-known`), and static files (any path ending with a file extension like `.jpg`, `.css`)
+2. **`has` condition**: Matches requests with a subdomain in the hostname, extracting it as a named group
+3. **`missing` condition**: Prevents `root.your-domain.com` from being treated as a subdomain — `root` is reserved for the main domain path
+4. **`destination`**: Rewrites to `/:subdomain/:path` or `/root/:path` based on the matched rule
 
 See the [full implementation](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/next-subdomains.ts#L103-L124) for the complete code.
 
@@ -131,9 +131,11 @@ Each subdomain gets its own directory. The `[subdomain]` directory handles dynam
 
 ### Example: Static Subdomain Page
 
-Here's the videos subdomain page implementation:
+Here's the videos subdomain page implementation using standard Next.js pages:
 
 ```tsx title="app/videos/page.tsx"
+// Using a custom Page helper for type-safe routing
+// You can also use standard Next.js: export default function VideosPage() { ... }
 export default Page.create({
   path: "/videos",
   name: "videos-list",
@@ -152,11 +154,13 @@ Access at `videos.app.localhost` (development) or `videos.your-domain.com` (prod
 The wildcard subdomain page captures any subdomain not explicitly defined:
 
 ```tsx title="app/[subdomain]/page.tsx"
+// Using a custom Page helper - alternatively use: export default async function SubdomainPage({ params })
 export default Page.create({
   path: "/[subdomain]",
   name: "catch-all-subdomain",
 }).page(async ({ getPathParams }) => {
   const { subdomain } = await getPathParams(); // [!code highlight]
+  // In standard Next.js: const { subdomain } = await params
 
   return (
     <div>
