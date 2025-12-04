@@ -131,36 +131,35 @@ Each subdomain gets its own directory. The `[subdomain]` directory handles dynam
 
 ### Example: Static Subdomain Page
 
-Here's the videos subdomain page implementation using standard Next.js pages:
+Here's a simplified example of a videos subdomain page (the actual implementation uses a re-export pattern):
 
 ```tsx title="app/videos/page.tsx"
-// Using a custom Page helper for type-safe routing
-// You can also use standard Next.js: export default function VideosPage() { ... }
-export default Page.create({
-  path: "/videos",
-  name: "videos-list",
-}).page(() => (
-  <div>
-    <h1>Videos Subdomain</h1>
-    {/* Your videos listing */}
-  </div>
-));
+// Simplified example - the actual app uses a re-export pattern
+// Real implementation: export { VideosPage as default } from "~/video/server/videos-page"
+export default function VideosPage() {
+  return (
+    <div>
+      <h1>Videos Subdomain</h1>
+      {/* Your videos listing */}
+    </div>
+  );
+}
 ```
 
 Access at `videos.app.localhost` (development) or `videos.your-domain.com` (production).
 
 ### Example: Dynamic Subdomain Page
 
-The wildcard subdomain page captures any subdomain not explicitly defined:
+The wildcard subdomain page captures any subdomain not explicitly defined. Here's the actual implementation from the repository:
 
 ```tsx title="app/[subdomain]/page.tsx"
-// Using a custom Page helper - alternatively use: export default async function SubdomainPage({ params })
-export default Page.create({
-  path: "/[subdomain]",
-  name: "catch-all-subdomain",
-}).page(async ({ getPathParams }) => {
-  const { subdomain } = await getPathParams(); // [!code highlight]
-  // In standard Next.js: const { subdomain } = await params
+// The repository uses a custom Page helper, but here's the standard Next.js equivalent:
+export default async function SubdomainPage({
+  params,
+}: {
+  params: Promise<{ subdomain: string }>;
+}) {
+  const { subdomain } = await params; // [!code highlight]
 
   return (
     <div>
@@ -168,7 +167,7 @@ export default Page.create({
       {/* Load tenant-specific data based on subdomain */}
     </div>
   );
-});
+}
 ```
 
 See the [full page implementation](https://github.com/sashkode/sashkode/blob/trunk/src/app/%5Bsubdomain%5D/page.tsx).
