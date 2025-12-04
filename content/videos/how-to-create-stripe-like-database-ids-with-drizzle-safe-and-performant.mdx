@@ -70,11 +70,15 @@ binary(16) → AES decrypt → Base58 encode → "prefix_encoded"
 
 The [`database/resource-id.ts`](https://github.com/sashkode/best-database-ids/blob/trunk/database/resource-id.ts) module handles ID generation, encoding, and decoding.
 
+**Dependencies**: The module uses Node.js's built-in `crypto` module for encryption (`createCipheriv`, `createDecipheriv`, `createHash`) and the `bs58` package for Base58 encoding.
+
 ### Key Derivation
 
 Each prefix gets its own encryption key derived from a secret:
 
 ```typescript title="database/resource-id.ts"
+import { createHash } from "node:crypto"; // [!code highlight]
+
 const deriveKey = (prefix: string): Buffer =>
   createHash("sha256")
     .update(`resource-id:${prefix}:${process.env.DATABASE_ID_SECRET!}`)
@@ -93,6 +97,9 @@ This approach:
 Transform raw UUID bytes into public-facing prefixed strings:
 
 ```typescript title="database/resource-id.ts"
+import { createCipheriv } from "node:crypto"; // [!code highlight]
+import bs58 from "bs58"; // [!code highlight]
+
 const encodeId = <Prefix extends string>(
   prefix: Prefix,
   internal: Uint8Array
@@ -130,6 +137,9 @@ const encodeId = <Prefix extends string>(
 Reverse the process to retrieve database values:
 
 ```typescript title="database/resource-id.ts"
+import { createDecipheriv } from "node:crypto"; // [!code highlight]
+import bs58 from "bs58"; // [!code highlight]
+
 const decodeId = <Prefix extends string>(
   prefix: Prefix,
   external: PrefixedId<Prefix>
@@ -174,6 +184,8 @@ The validation steps ensure:
 Create a new ID for any prefix:
 
 ```typescript title="database/resource-id.ts"
+import { v7 as uuidv7 } from "uuid"; // [!code highlight]
+
 export const generateResourceId = <Prefix extends string>(
   prefix: Prefix
 ): PrefixedId<Prefix> => {
