@@ -110,6 +110,7 @@ Then you can call `useSearch()` to get fully typed, validated search params in y
 This repository includes a custom `Page.create()` API that provides the same capabilities. Here's the usage:
 
 ```tsx title="app/products/page.tsx"
+// ~ is an alias for src/ directory (configured in tsconfig.json)
 import { Page } from "~/platform/server/safe-page";
 import { z } from "zod";
 
@@ -535,7 +536,8 @@ Client components can access the context:
 "use client";
 
 import { usePage } from "~/platform/client/hooks/use-page";
-import type ProductsPage from "../page";
+// Import the page type - adjust path based on your file structure
+import type ProductsPage from "@/app/products/page";
 
 export function ProductFilters() {
   const { searchParams, replaceSearchParams } = usePage<typeof ProductsPage>();
