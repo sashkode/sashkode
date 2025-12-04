@@ -23,17 +23,17 @@ export const VideosPage = Page.create({
           <p className="mt-2 text-lg text-zinc-600 dark:text-zinc-400">Articles generated from YouTube videos with interactive code examples.</p>
         </header>
 
-        <div className="grid gap-6">
+        <div className="grid gap-6 overflow-hidden">
           {posts.map((post) => {
             const thumbnailUrl = getYoutubeThumbnailUrl(post.data.youtubeVideoId);
             return (
-              <article className="group" key={post.url}>
+              <article className="group min-w-0" key={post.url}>
                 <SubdomainLink className="block rounded-xl border border-zinc-200 p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:border-zinc-700 dark:hover:bg-zinc-900/50" params={{ slug: post.slugs[0] ?? "" }} pathname="/[slug]" subdomain="videos">
                   <div className="flex h-24 flex-row items-center gap-6">
                     <div className="relative h-full shrink-0 overflow-hidden rounded-lg" style={{ aspectRatio: "16/9" }}>
                       <Image alt={post.data.title} className="object-cover transition-transform group-hover:scale-105" fill={true} src={thumbnailUrl} unoptimized={true} />
                     </div>
-                    <div className="flex-1 overflow-hidden">
+                    <div className="min-w-0 flex-1 overflow-hidden">
                       <h2 className="truncate font-semibold text-black text-xl transition-colors group-hover:text-zinc-600 dark:text-zinc-50 dark:group-hover:text-zinc-300">{post.data.title}</h2>
                       {post.data.description ? <p className="mt-1 line-clamp-1 text-sm text-zinc-600 dark:text-zinc-400">{post.data.description}</p> : null}
                       <div className="mt-2 flex items-center gap-4 text-sm text-zinc-500 dark:text-zinc-500">
