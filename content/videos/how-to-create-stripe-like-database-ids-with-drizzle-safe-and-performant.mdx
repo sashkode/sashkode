@@ -1,0 +1,353 @@
+---
+title: How to Create Stripe-Like Database IDs with Drizzle • Safe and Performant!
+description: Build secure, sortable, prefixed database IDs using UUIDv7, AES encryption, and Drizzle custom types for a modern serverless-friendly ID system.
+author: sashkode
+date: 2025-11-20
+youtubeVideoId: wkwcOCCh6Ic
+---
+
+This article walks through implementing Stripe-style database IDs that are **sortable**, **secure**, **collision-resistant**, and **developer-friendly**. The approach uses UUIDv7 for time-ordering, AES-256 encryption for security, and Drizzle ORM's custom types for seamless integration.
+
+The full implementation is available at [sashkode/best-database-ids](https://github.com/sashkode/best-database-ids).
+
+## What Makes a Good Database ID?
+
+A production-ready database ID needs to balance four key requirements:
+
+### 1. Collision Resistance
+
+IDs serve as primary keys, so uniqueness is non-negotiable. Traditional approaches:
+
+- **Serial/Auto-increment**: Guaranteed unique but problematic in distributed systems
+- **UUIDv4**: Fully random with ~zero collision probability but not sortable
+- **Snowflake IDs**: Time-based with machine ID but complex to implement
+
+**Solution**: UUIDv7 provides cryptographic randomness with a timestamp prefix, ensuring both uniqueness and sortability.
+
+### 2. Database Performance (Sortability)
+
+Random IDs like UUIDv4 cause database index fragmentation. When you insert a new record with a random ID, the database must rebalance B-tree indexes, leading to performance degradation at scale.
+
+[PlanetScale recommends](https://planetscale.com/blog/the-problem-with-using-a-uuid-primary-key-in-mysql) sortable IDs for primary keys to maintain index locality. UUIDv7 solves this by embedding a timestamp component—new IDs naturally sort after older ones, keeping indexes balanced.
+
+### 3. Safe for Public Exposure
+
+Exposing raw database IDs creates security and privacy concerns:
+
+- **Serial IDs**: Reveal record count and allow enumeration attacks (`/users/1`, `/users/2`, etc.)
+- **UUIDv7/v6**: Leak creation timestamps, potentially exposing business metrics
+- **Snowflake IDs**: Expose machine IDs and timestamps
+
+**Solution**: Encrypt IDs before exposing them publicly. This obfuscates all metadata while maintaining the internal performance benefits.
+
+### 4. Developer Experience (Look and Feel)
+
+Stripe's ID format (`cus_abc123`, `inv_xyz789`) provides:
+
+- **Prefix scoping**: Immediately identify resource types
+- **Type safety**: Prevents mixing user IDs with order IDs at compile time
+- **Readability**: Base58 encoding avoids ambiguous characters
+
+## The Implementation Strategy
+
+The solution combines three techniques:
+
+1. **UUIDv7** for sortable, collision-resistant internal IDs
+2. **AES-256-ECB encryption** to obfuscate timestamp data
+3. **Base58 encoding** with prefixes for clean, URL-safe external IDs
+
+Here's the flow:
+
+```typescript
+// Internal (database)
+UUIDv7 bytes → AES encrypt → Store as binary(16)
+
+// External (API/UI)
+binary(16) → AES decrypt → Base58 encode → "prefix_encoded"
+```
+
+## Core Implementation: Resource ID Module
+
+The [`database/resource-id.ts`](https://github.com/sashkode/best-database-ids/blob/trunk/database/resource-id.ts) module handles ID generation, encoding, and decoding.
+
+### Key Derivation
+
+Each prefix gets its own encryption key derived from a secret:
+
+```typescript title="database/resource-id.ts"
+const deriveKey = (prefix: string): Buffer =>
+  createHash("sha256")
+    .update(`resource-id:${prefix}:${process.env.DATABASE_ID_SECRET!}`)
+    .digest();
+```
+
+This approach:
+- Uses a single environment variable for all prefixes
+- Creates deterministic keys per prefix (same prefix = same key)
+- Leverages SHA-256 for cryptographic key derivation
+
+**Security note**: If `DATABASE_ID_SECRET` leaks, all IDs must be re-encrypted. For high-security applications, consider key rotation strategies.
+
+### Encoding: From Binary to Pretty ID
+
+Transform raw UUID bytes into public-facing prefixed strings:
+
+```typescript title="database/resource-id.ts"
+const encodeId = <Prefix extends string>(
+  prefix: Prefix,
+  internal: Uint8Array
+): PrefixedId<Prefix> => {
+  // Validate input length
+  if (internal.length !== BLOCK_SIZE) { // [!code highlight]
+    throw new TypeError(
+      `Expected ${BLOCK_SIZE} bytes, received ${internal.length} bytes`
+    );
+  }
+
+  // Encrypt the payload
+  const cipher = createCipheriv("aes-256-ecb", deriveKey(prefix), null); // [!code highlight]
+  cipher.setAutoPadding(false);
+  const encrypted = Buffer.concat([cipher.update(internal), cipher.final()]);
+
+  // Encode as base58 with prefix
+  return `${prefix}_${bs58.encode(new Uint8Array(encrypted))}`; // [!code highlight]
+};
+```
+
+**Why AES-256-ECB?**
+- ECB mode works because each UUID is exactly 16 bytes (one AES block)
+- No initialization vector (IV) needed, keeping IDs concise
+- Deterministic: same UUID always produces the same encrypted output
+
+**Why Base58?**
+- Removes ambiguous characters (`0`, `O`, `I`, `l`)
+- No special characters (`+`, `/` from Base64)
+- URL-safe without encoding
+- Used by Bitcoin and Stripe
+
+### Decoding: From Pretty ID to Binary
+
+Reverse the process to retrieve database values:
+
+```typescript title="database/resource-id.ts"
+const decodeId = <Prefix extends string>(
+  prefix: Prefix,
+  external: PrefixedId<Prefix>
+): Uint8Array => {
+  // Validate prefix
+  if (!external.startsWith(`${prefix}_`)) { // [!code highlight]
+    throw new TypeError(
+      `Expected resource ID to start with prefix "${prefix}_"`
+    );
+  }
+
+  // Decode the base58 payload
+  const encoded = external.slice(prefix.length + 1 /* underscore */);
+  const obfuscated = bs58.decode(encoded); // [!code highlight]
+
+  // Validate decoded length
+  if (obfuscated.length !== BLOCK_SIZE) {
+    throw new TypeError(
+      `Expected ${BLOCK_SIZE} bytes, received ${obfuscated.length} bytes`
+    );
+  }
+
+  // Decrypt the payload
+  const decipher = createDecipheriv("aes-256-ecb", deriveKey(prefix), null); // [!code highlight]
+  decipher.setAutoPadding(false);
+  const decrypted = Buffer.concat([
+    decipher.update(obfuscated),
+    decipher.final(),
+  ]);
+
+  return new Uint8Array(decrypted);
+};
+```
+
+The validation steps ensure:
+- Prefix matches expected resource type
+- Decoded length matches AES block size (16 bytes)
+- TypeScript enforces correct prefix usage via template literal types
+
+### Generating New IDs
+
+Create a new ID for any prefix:
+
+```typescript title="database/resource-id.ts"
+export const generateResourceId = <Prefix extends string>(
+  prefix: Prefix
+): PrefixedId<Prefix> => {
+  const bytes = new Uint8Array(16);
+  uuidv7(undefined, bytes); // [!code highlight]
+  return encodeId(prefix, bytes);
+};
+```
+
+Example output:
+```typescript
+generateResourceId("user")  // => "user_3YQ7R8fKpQ2ZkN8mW3h4Vx"
+generateResourceId("order") // => "order_5Tm9pLxNvR7fH2qP8wY6Kb"
+```
+
+## Drizzle Integration: Custom Column Type
+
+The [`resourceId`](https://github.com/sashkode/best-database-ids/blob/trunk/database/resource-id.ts#L126-L137) custom type brings this all together in Drizzle schemas:
+
+```typescript title="database/resource-id.ts"
+export const resourceId = <Name extends string, Prefix extends string>(
+  prefix: Prefix,
+  dbName?: Name
+) =>
+  customType<{
+    data: PrefixedId<Prefix>; /** User-facing prefixed identifier (e.g. `user_3YQ...`). */
+    driverData: Uint8Array; /** Raw UUIDv7 bytes persisted in the database. */
+  }>({
+    dataType: () => "binary(16)", // [!code highlight]
+    fromDriver: (internal) => encodeId(prefix, internal), // [!code highlight]
+    toDriver: (external) => decodeId(prefix, external), // [!code highlight]
+  })<Name>(dbName!).$defaultFn(() => generateResourceId(prefix)); // [!code highlight]
+```
+
+**How it works:**
+
+- **`dataType`**: Defines the MySQL column type as `binary(16)` for efficient storage
+- **`fromDriver`**: Converts database bytes to prefixed strings when reading
+- **`toDriver`**: Converts prefixed strings to bytes when writing
+- **`$defaultFn`**: Automatically generates IDs for new records
+
+### Using in Schemas
+
+Define tables with type-safe prefixed IDs:
+
+```typescript title="database/schema.ts"
+import { mysqlTable } from "drizzle-orm/mysql-core";
+import { resourceId } from "./resource-id";
+
+export const users = mysqlTable("users", {
+  id: resourceId("user", "id").primaryKey(), // [!code highlight]
+  // ... other columns
+});
+
+export const orders = mysqlTable("orders", {
+  id: resourceId("order", "id").primaryKey(), // [!code highlight]
+  userId: resourceId("user", "user_id"), // [!code highlight]
+  // ... other columns
+});
+```
+
+This creates:
+- `users.id` with type `user_abc123...`
+- `orders.id` with type `order_xyz789...`
+- `orders.userId` with type `user_abc123...`
+
+TypeScript will prevent assigning an `order_` ID to a `userId` field.
+
+## Type Safety Benefits
+
+The template literal type provides compile-time safety:
+
+```typescript title="Type inference"
+type PrefixedId<Prefix extends string> = `${Prefix}_${string}`;
+
+// Example inferred types
+const userId: "user_abc123" = "user_abc123";    // ✓ Valid
+const userId: "user_abc123" = "order_xyz789";   // ✗ Type error
+const userId: "user_abc123" = "abc123";         // ✗ Type error (missing prefix)
+```
+
+In practice:
+
+```typescript
+// Drizzle query results
+const user = await db.query.users.findFirst();
+user.id // Type: `user_${string}`
+
+const order = await db.query.orders.findFirst();
+order.id // Type: `order_${string}`
+order.userId // Type: `user_${string}`
+
+// Compile-time error: can't assign order ID to user field
+order.userId = user.id;    // ✓ Valid
+order.userId = order.id;   // ✗ Type error
+```
+
+## Performance Considerations
+
+**Encryption overhead**: Negligible. Generating and encrypting 500 IDs takes ~1-2ms, far less than a single database query.
+
+**Database storage**: 16 bytes per ID (same as a raw UUID) vs 36 bytes for a string UUID.
+
+**Index performance**: UUIDv7's time-ordering keeps B-tree indexes balanced, preventing fragmentation issues common with UUIDv4.
+
+**Serverless friendly**: No coordination required between instances. Each generates unique IDs via UUIDv7's timestamp + random components.
+
+## Example: Seeding the Database
+
+The [seed script](https://github.com/sashkode/best-database-ids/blob/trunk/database/seed.ts) shows real-world usage:
+
+```typescript title="database/seed.ts"
+import { seed } from "drizzle-seed";
+import { db } from "./drizzle";
+import { ids } from "./schema";
+import { generateResourceId } from "./resource-id";
+
+export const seedDB = async () => {
+  await seed(db, { ids }).refine((funcs) => ({
+    ids: {
+      columns: {
+        id: funcs.valuesFromArray({
+          values: Array.from({ length: 10 }, () => generateResourceId("test")), // [!code highlight]
+          isUnique: true,
+        }),
+      },
+    },
+  }));
+};
+```
+
+Generated IDs look like:
+```
+test_3YQ7R8fKpQ2ZkN8mW3h4Vx
+test_5Tm9pLxNvR7fH2qP8wY6Kb
+test_8Kp4sNxQvW9mT7eR2fY5Hn
+```
+
+## Tradeoffs and Alternatives
+
+**When to use this approach:**
+- Exposing IDs in URLs or APIs
+- Need sortable primary keys for performance
+- Want type safety across resource types
+- Working in serverless environments
+
+**When to consider alternatives:**
+- **Pure UUIDv7**: Skip encryption if timestamp leakage isn't a concern
+- **ULID**: Similar to UUIDv7 but uses Crockford's Base32 encoding natively
+- **KSUID**: K-sortable unique identifiers, similar concept with different encoding
+- **Nano ID**: Shorter IDs but no time component (not sortable)
+
+**Key limitation**: If `DATABASE_ID_SECRET` is compromised, you must rotate it and re-encrypt all existing IDs. Consider:
+- Storing the secret in a secure vault (AWS Secrets Manager, Vault, etc.)
+- Implementing multi-key support for gradual rotation
+- Regular security audits of environment variables
+
+## Related Resources
+
+- **Video**: [Watch the full explanation](https://youtu.be/wkwcOCCh6Ic)
+- **Repository**: [best-database-ids](https://github.com/sashkode/best-database-ids)
+- **UUIDv7 Spec**: [RFC 9562](https://www.rfc-editor.org/rfc/rfc9562.html#name-uuid-version-7)
+- **Drizzle Custom Types**: [Documentation](https://orm.drizzle.team/docs/custom-types)
+- **PlanetScale Article**: [The problem with using a UUID primary key in MySQL](https://planetscale.com/blog/the-problem-with-using-a-uuid-primary-key-in-mysql)
+- **Theo's UUID Video**: [Which UUID version should you use?](https://www.youtube.com/watch?v=a-K2C3sf1_Q)
+
+## Next Steps
+
+To implement this in your project:
+
+1. Copy [`database/resource-id.ts`](https://github.com/sashkode/best-database-ids/blob/trunk/database/resource-id.ts) to your codebase
+2. Install dependencies: `pnpm add uuid bs58` and `pnpm add -D @types/uuid`
+3. Add `DATABASE_ID_SECRET` to your environment variables (use a random 32+ character string)
+4. Define your schema using `resourceId()` custom types
+5. Run migrations to create `binary(16)` columns
+
+The beauty of this approach is its transparency—application code always works with pretty prefixed IDs while the database handles raw bytes for optimal performance.
