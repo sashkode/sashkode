@@ -294,7 +294,7 @@ youtubeVideoId: ${videoId}
 
 ### Repository Exploration
 
-Before writing, search the \`sashkode/sashkode\` repository for:
+Before writing, search the \`sashkode/sashkode\` (or the one linked in the video description) repository for:
 - Direct implementations mentioned in the transcript
 - Related utilities in \`src/utils/\` 
 - Type definitions and interfaces
@@ -305,10 +305,12 @@ Include relevant code even if not explicitly mentioned in the video.
 
 ### GitHub Permalinks
 
-Link to code using the \`trunk\` branch:
+Link to code using the \`trunk\` or \`main\` branch:
 \`\`\`
 https://github.com/sashkode/sashkode/blob/trunk/path/to/file.ts#L10-L20
 \`\`\`
+
+Be sure to link to the specific repo used in the video if different.
 
 ### Code Block Guidelines
 - Use \`// [!code ++]\` and \`// [!code --]\` for diff highlighting
@@ -318,7 +320,7 @@ https://github.com/sashkode/sashkode/blob/trunk/path/to/file.ts#L10-L20
 
 ### Reference Files
 - Agent instructions: \`.github/copilot/agents/article-writer.md\`
-- Example article: \`content/videos/welcome.mdx\`
+- Example articles: \`content/videos/...\`
 - MDX components: \`src/features/videos/shared/mdx-components.tsx\`
 
 ### Video Description

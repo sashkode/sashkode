@@ -195,27 +195,6 @@ import { SubdomainLink } from "~/platform/client/components/subdomain-link";
 </SubdomainLink>
 ```
 
-### How It Works
-
-The component constructs absolute URLs by:
-
-1. Detecting the current hostname and protocol
-2. Extracting the root domain
-3. Building the target URL with the specified subdomain
-
-```typescript title="src/platform/client/components/subdomain-link.tsx"
-const hostname = window.location.hostname;
-const protocol = window.location.protocol;
-const parts = hostname.split(".");
-const rootDomain = parts.length > 2 ? parts.slice(-2).join(".") : hostname;
-
-if (!subdomain || subdomain === "root") {
-  setComputedHref(`${protocol}//${rootDomain}${portSegment}${resolvedPathname}`);
-} else {
-  setComputedHref(`${protocol}//${subdomain}.${rootDomain}${portSegment}${resolvedPathname}`); // [!code highlight]
-}
-```
-
 See the [complete component](https://github.com/sashkode/sashkode/blob/trunk/src/platform/client/components/subdomain-link.tsx#L74-L106) for the full implementation including TypeScript types.
 
 ## Local Development with Subdomains
@@ -261,33 +240,11 @@ This runs:
 
 The `predev:ssl` script installs the CA certificate, and `dev:ssl` starts Next.js with HTTPS enabled.
 
-For detailed certificate setup, see the [Local SSL/HTTPS in Next.js](https://sashkode.dev/videos/local-sslhttps-in-nextjs-works-for-subdomains) article.
+For detailed certificate setup, see the [Local SSL/HTTPS in Next.js](https://videos.sashkode.dev/local-sslhttps-in-nextjs-works-for-subdomains) article.
 
 ## Production Deployment on Vercel
 
-### 1. Configure Custom Domain
-
-Add your domain in Vercel project settings:
-
-```
-your-domain.com
-```
-
-### 2. Add Wildcard DNS Record
-
-In your DNS provider, create a wildcard A record:
-
-```text
-*.your-domain.com  ->  76.76.21.21 (Vercel's IP)
-```
-
-Or a CNAME record:
-
-```text
-*.your-domain.com  ->  cname.vercel-dns.com
-```
-
-### 3. Enable Wildcard Domain in Vercel
+### 1. Just Configure as a Wildcard Domain in Vercel
 
 In the Vercel dashboard, add the wildcard domain:
 
@@ -297,7 +254,7 @@ In the Vercel dashboard, add the wildcard domain:
 
 Vercel will automatically provision SSL certificates for all subdomains using Let's Encrypt.
 
-### 4. Update Configuration (Optional)
+### 2. Update Configuration (Optional)
 
 If you added custom domains to `createSubdomainConfig`, Vercel's environment variables will already include your production URL:
 
@@ -328,44 +285,8 @@ The `SubdomainLink` component provides full TypeScript support for routes and pa
 
 The types are derived from Next.js's typed routes, ensuring links stay in sync with your app structure.
 
-See the [type definitions](https://github.com/sashkode/sashkode/blob/trunk/src/platform/client/components/subdomain-link.tsx#L9-L47) for the complete implementation.
-
-## Comparison: Middleware vs. Rewrites
-
-### With Middleware (Platforms Starter Kit)
-
-```typescript title="middleware.ts"
-export async function middleware(req: NextRequest) {
-  const hostname = req.headers.get("host") || "";
-  const subdomain = hostname.split(".")[0];
-  
-  // Runtime JavaScript executes on every request // [!code --]
-  if (subdomain && subdomain !== "www") { // [!code --]
-    return NextResponse.rewrite(new URL(`/${subdomain}${req.nextUrl.pathname}`, req.url)); // [!code --]
-  } // [!code --]
-}
-```
-
-**Issues:**
-- Executes JavaScript on every request
-- Harder to debug and reason about
-- Logic split between middleware and config
-
-### With Rewrites (This Approach)
-
-```typescript title="next.config.ts"
-const { rewrites } = createSubdomainConfig(env, ["example.com"]);
-
-export default {
-  rewrites, // [!code ++]
-}
-```
-
-**Benefits:**
-- No runtime overhead
-- Declarative configuration
-- Centralized routing logic
-- Easier to test and maintain
+See the [type definitions](https://github.com/sashkode/sashkode/blob/trunk/src/platform/client/components/subdomain-link.tsx#L9-L47) for the complete implementation or more on type safety in the [Why I'm NOT switching to TanStack Start - Type safety in Next.js
+](http://videos.sashkode.dev/why-im-not-switching-to-tan-stack-start-type-safety-in-nextjs) article.
 
 ## Further Exploration
 
