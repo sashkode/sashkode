@@ -546,7 +546,7 @@ export function ProductFilters() {
     <div>
       <select
         value={searchParams.sort}
-        onChange={(e) => replaceSearchParams({ sort: e.target.value })}
+        onChange={(e) => replaceSearchParams({ sort: e.target.value as "price" | "name" | "date" })}
       >
         <option value="price">Price</option>
         <option value="name">Name</option>
@@ -555,7 +555,7 @@ export function ProductFilters() {
       
       <select
         value={searchParams.order}
-        onChange={(e) => replaceSearchParams({ order: e.target.value })}
+        onChange={(e) => replaceSearchParams({ order: e.target.value as "asc" | "desc" })}
       >
         <option value="asc">Ascending</option>
         <option value="desc">Descending</option>
