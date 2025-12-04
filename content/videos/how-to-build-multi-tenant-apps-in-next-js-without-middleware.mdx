@@ -1,0 +1,382 @@
+---
+title: How to Build Multi-Tenant Apps in Next.js • Without Middleware?
+description: Learn how to build multi-tenant Next.js applications using rewrites instead of middleware for cleaner, more maintainable subdomain routing.
+author: sashkode
+date: 2025-11-06
+youtubeVideoId: 4QyGjUtuVWw
+---
+
+This article shows you how to implement multi-tenant subdomain routing in Next.js using **configuration-based rewrites** instead of middleware. The approach is inspired by Vercel's Platforms Starter Kit but eliminates the complexity of runtime middleware in favor of declarative Next.js configuration.
+
+## Why Skip Middleware?
+
+The [Vercel Platforms Starter Kit](https://vercel.com/templates/next.js/platforms-starter-kit) uses middleware to extract subdomains from the request hostname and rewrite URLs accordingly. While this works, it introduces:
+
+- **Runtime overhead** — JavaScript executes on every request
+- **Complexity** — Subdomain logic is spread across middleware and routing
+- **Maintenance burden** — Changes require understanding both middleware and Next.js routing
+
+Using Next.js rewrites moves this logic to the **configuration layer** where it belongs. No JavaScript runs, no middleware to debug, and the routing logic is centralized in `next.config.ts`.
+
+## The Core Concept
+
+Instead of using middleware to parse the hostname and rewrite URLs, define rewrites in `next.config.ts` that:
+
+1. Match requests based on the `host` header
+2. Extract the subdomain as a route parameter
+3. Rewrite to the appropriate app directory path
+
+This leverages Next.js's built-in rewrite system to handle multi-tenancy without custom code.
+
+## Implementation: Subdomain Configuration
+
+The complete implementation lives in [`config/ssl/next-subdomains.ts`](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/next-subdomains.ts). Here's how it works:
+
+### Detecting the Root Domain
+
+First, determine the base domain dynamically based on the environment:
+
+```typescript title="config/ssl/next-subdomains.ts"
+export const createSubdomainConfig = (env: VercelEnv, customDomains: string[] = []) => {
+  // Detect root domain from Vercel environment variables or fallback to localhost
+  const rootDomain = env.VERCEL_ENV 
+    ? `(${env.VERCEL_URL}|${env.VERCEL_BRANCH_URL}|${env.VERCEL_PROJECT_PRODUCTION_URL}|${customDomains.join("|")})` 
+    : "app.localhost";
+```
+
+- **Production/Preview**: Uses Vercel environment variables (`VERCEL_URL`, `VERCEL_PROJECT_PRODUCTION_URL`)
+- **Local development**: Defaults to `app.localhost`
+- **Custom domains**: Supports additional domains via the `customDomains` parameter
+
+### Rewrite Rules
+
+The configuration returns two key rewrites using Next.js's `beforeFiles` phase:
+
+```typescript title="config/ssl/next-subdomains.ts"
+return {
+  rewrites: () => ({
+    beforeFiles: [
+      {
+        // Handle subdomain routing // [!code highlight]
+        source: "/:path((?!api|_next|_static|_vercel|\\.well-known|.*\\.\\w+$).*)*", // [!code highlight]
+        has: [{ type: "host", value: `(?<subdomain>.*).${rootDomain}` }], // [!code highlight]
+        missing: [{ type: "host", value: `root.${rootDomain}` }], // [!code highlight]
+        destination: "/:subdomain*/:path*", // [!code highlight]
+      },
+      {
+        // Handle root domain routing // [!code highlight]
+        source: "/:path((?!api|_next|_static|_vercel|\\.well-known|.*\\.\\w+$).*)*", // [!code highlight]
+        has: [{ type: "host", value: `${rootDomain}` }], // [!code highlight]
+        destination: "/root/:path*", // [!code highlight]
+      },
+    ],
+  }),
+};
+```
+
+**Key details:**
+
+1. **`source` regex**: Excludes Next.js internal paths (`_next`, `_static`), API routes, and static files
+2. **`has` condition**: Matches requests with a subdomain in the hostname
+3. **`missing` condition**: Ensures `root` isn't treated as a subdomain (it's reserved for the main domain)
+4. **`destination`**: Rewrites to `/:subdomain/:path` or `/root/:path`
+
+See the [full implementation](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/next-subdomains.ts#L103-L124) for the complete code.
+
+### Using the Configuration
+
+In `next.config.ts`, import and apply the configuration:
+
+```typescript title="next.config.ts"
+import { createSubdomainConfig } from "./config/ssl/next-subdomains";
+import { env } from "~/env/server";
+
+const { rewrites, redirects, allowedDevOrigins } = createSubdomainConfig(
+  env, 
+  ["sashkode.dev", "sashkode.app"] // [!code highlight]
+);
+
+const nextConfig: NextConfig = {
+  allowedDevOrigins, // [!code highlight]
+  rewrites, // [!code highlight]
+  redirects, // [!code highlight]
+  // ... other config
+};
+```
+
+The configuration also returns:
+- **`allowedDevOrigins`**: Enables CORS for local subdomain development
+- **`redirects`**: Redirects `localhost` to `app.localhost` in development
+
+## App Directory Structure
+
+With rewrites configured, organize your app directory by subdomain:
+
+```files
+app/
+├── root/              # Routes for the root domain (app.localhost or your-domain.com)
+│   ├── page.tsx       # -> app.localhost/
+│   └── layout.tsx
+├── videos/            # Routes for videos subdomain (videos.app.localhost)
+│   ├── page.tsx       # -> videos.app.localhost/
+│   ├── [slug]/
+│   │   └── page.tsx   # -> videos.app.localhost/my-video
+│   └── layout.tsx
+├── [subdomain]/       # Dynamic wildcard subdomain
+│   └── page.tsx       # -> anything.app.localhost/
+└── layout.tsx         # Root layout (shared by all)
+```
+
+Each subdomain gets its own directory. The `[subdomain]` directory handles dynamic tenants.
+
+### Example: Static Subdomain Page
+
+Here's the videos subdomain page implementation:
+
+```tsx title="app/videos/page.tsx"
+export default Page.create({
+  path: "/videos",
+  name: "videos-list",
+}).page(() => (
+  <div>
+    <h1>Videos Subdomain</h1>
+    {/* Your videos listing */}
+  </div>
+));
+```
+
+Access at `videos.app.localhost` (development) or `videos.your-domain.com` (production).
+
+### Example: Dynamic Subdomain Page
+
+The wildcard subdomain page captures any subdomain not explicitly defined:
+
+```tsx title="app/[subdomain]/page.tsx"
+export default Page.create({
+  path: "/[subdomain]",
+  name: "catch-all-subdomain",
+}).page(async ({ getPathParams }) => {
+  const { subdomain } = await getPathParams(); // [!code highlight]
+
+  return (
+    <div>
+      <h1>Subdomain: {subdomain}</h1> {/* [!code highlight] */}
+      {/* Load tenant-specific data based on subdomain */}
+    </div>
+  );
+});
+```
+
+See the [full page implementation](https://github.com/sashkode/sashkode/blob/trunk/src/app/%5Bsubdomain%5D/page.tsx).
+
+## Cross-Subdomain Navigation
+
+Navigating between subdomains requires full URLs. The [`SubdomainLink`](https://github.com/sashkode/sashkode/blob/trunk/src/platform/client/components/subdomain-link.tsx) component makes this type-safe and seamless:
+
+```tsx title="src/platform/client/components/subdomain-link.tsx"
+import { SubdomainLink } from "~/platform/client/components/subdomain-link";
+
+// Link to root domain
+<SubdomainLink subdomain="root" pathname="/about">
+  About Us
+</SubdomainLink>
+
+// Link to videos subdomain
+<SubdomainLink subdomain="videos" pathname="/[slug]" params={{ slug: "my-video" }}>
+  Watch Video
+</SubdomainLink>
+
+// Link to dynamic subdomain
+<SubdomainLink subdomain="acme">
+  Acme Corp Dashboard
+</SubdomainLink>
+```
+
+### How It Works
+
+The component constructs absolute URLs by:
+
+1. Detecting the current hostname and protocol
+2. Extracting the root domain
+3. Building the target URL with the specified subdomain
+
+```typescript title="src/platform/client/components/subdomain-link.tsx"
+const hostname = window.location.hostname;
+const protocol = window.location.protocol;
+const parts = hostname.split(".");
+const rootDomain = parts.length > 2 ? parts.slice(-2).join(".") : hostname;
+
+if (!subdomain || subdomain === "root") {
+  setComputedHref(`${protocol}//${rootDomain}${portSegment}${resolvedPathname}`);
+} else {
+  setComputedHref(`${protocol}//${subdomain}.${rootDomain}${portSegment}${resolvedPathname}`); // [!code highlight]
+}
+```
+
+See the [complete component](https://github.com/sashkode/sashkode/blob/trunk/src/platform/client/components/subdomain-link.tsx#L74-L106) for the full implementation including TypeScript types.
+
+## Local Development with Subdomains
+
+### Option 1: HTTP (Quick Start)
+
+For basic testing, redirect `localhost` to `app.localhost`:
+
+```typescript title="config/ssl/next-subdomains.ts"
+redirects: () => [
+  {
+    permanent: false,
+    source: "/:path*",
+    has: [{ type: "host", value: "localhost" }],
+    destination: "http://app.localhost:3000/:path*", // [!code highlight]
+  },
+];
+```
+
+Access your app at:
+- `http://app.localhost:3000` (root domain)
+- `http://videos.app.localhost:3000` (videos subdomain)
+- `http://tenant1.app.localhost:3000` (dynamic subdomain)
+
+### Option 2: HTTPS (Production-Like)
+
+For a production-like environment with SSL, use Next.js's experimental HTTPS support with custom certificates:
+
+```bash title="Terminal"
+npm run dev:ssl
+```
+
+This runs:
+
+```json title="package.json"
+{
+  "scripts": {
+    "predev:ssl": "./config/ssl/trust.sh",
+    "dev:ssl": "next dev --experimental-https --experimental-https-ca ./config/ssl/certificates/RootCA.crt --experimental-https-key ./config/ssl/certificates/localhost.key --experimental-https-cert ./config/ssl/certificates/localhost.crt"
+  }
+}
+```
+
+The `predev:ssl` script installs the CA certificate, and `dev:ssl` starts Next.js with HTTPS enabled.
+
+For detailed certificate setup, see the [Local SSL/HTTPS in Next.js](https://sashkode.dev/videos/local-sslhttps-in-nextjs-works-for-subdomains) article.
+
+## Production Deployment on Vercel
+
+### 1. Configure Custom Domain
+
+Add your domain in Vercel project settings:
+
+```
+your-domain.com
+```
+
+### 2. Add Wildcard DNS Record
+
+In your DNS provider, create a wildcard A record:
+
+```text
+*.your-domain.com  ->  76.76.21.21 (Vercel's IP)
+```
+
+Or a CNAME record:
+
+```text
+*.your-domain.com  ->  cname.vercel-dns.com
+```
+
+### 3. Enable Wildcard Domain in Vercel
+
+In the Vercel dashboard, add the wildcard domain:
+
+```
+*.your-domain.com
+```
+
+Vercel will automatically provision SSL certificates for all subdomains using Let's Encrypt.
+
+### 4. Update Configuration (Optional)
+
+If you added custom domains to `createSubdomainConfig`, Vercel's environment variables will already include your production URL:
+
+```typescript title="next.config.ts"
+const { rewrites, redirects } = createSubdomainConfig(
+  env, 
+  ["your-domain.com"] // Optional: add custom domains for preview branches
+);
+```
+
+## Type Safety with TypeScript
+
+The `SubdomainLink` component provides full TypeScript support for routes and parameters:
+
+```tsx
+// Type error: "videos" subdomain doesn't have a /dashboard route
+<SubdomainLink subdomain="videos" pathname="/dashboard"> {/* [!code --] */}
+
+// Valid: videos has a /[slug] route
+<SubdomainLink subdomain="videos" pathname="/[slug]" params={{ slug: "intro" }}> {/* [!code ++] */}
+
+// Type error: missing required params
+<SubdomainLink subdomain="videos" pathname="/[slug]"> {/* [!code --] */}
+
+// Valid: params provided
+<SubdomainLink subdomain="videos" pathname="/[slug]" params={{ slug: "intro" }}> {/* [!code ++] */}
+```
+
+The types are derived from Next.js's typed routes, ensuring links stay in sync with your app structure.
+
+See the [type definitions](https://github.com/sashkode/sashkode/blob/trunk/src/platform/client/components/subdomain-link.tsx#L9-L47) for the complete implementation.
+
+## Comparison: Middleware vs. Rewrites
+
+### With Middleware (Platforms Starter Kit)
+
+```typescript title="middleware.ts"
+export async function middleware(req: NextRequest) {
+  const hostname = req.headers.get("host") || "";
+  const subdomain = hostname.split(".")[0];
+  
+  // Runtime JavaScript executes on every request // [!code --]
+  if (subdomain && subdomain !== "www") { // [!code --]
+    return NextResponse.rewrite(new URL(`/${subdomain}${req.nextUrl.pathname}`, req.url)); // [!code --]
+  } // [!code --]
+}
+```
+
+**Issues:**
+- Executes JavaScript on every request
+- Harder to debug and reason about
+- Logic split between middleware and config
+
+### With Rewrites (This Approach)
+
+```typescript title="next.config.ts"
+const { rewrites } = createSubdomainConfig(env, ["example.com"]);
+
+export default {
+  rewrites, // [!code ++]
+}
+```
+
+**Benefits:**
+- No runtime overhead
+- Declarative configuration
+- Centralized routing logic
+- Easier to test and maintain
+
+## Further Exploration
+
+This implementation is part of a larger multi-tenant architecture. Explore related code:
+
+- **[Full subdomain configuration](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/next-subdomains.ts)** — Complete rewrite and redirect logic
+- **[SubdomainLink component](https://github.com/sashkode/sashkode/blob/trunk/src/platform/client/components/subdomain-link.tsx)** — Type-safe cross-subdomain navigation
+- **[Root domain page](https://github.com/sashkode/sashkode/blob/trunk/src/app/root/page.tsx)** — Example root domain implementation
+- **[Dynamic subdomain page](https://github.com/sashkode/sashkode/blob/trunk/src/app/%5Bsubdomain%5D/page.tsx)** — Wildcard subdomain handler
+- **[Next.js config](https://github.com/sashkode/sashkode/blob/trunk/next.config.ts)** — How everything ties together
+
+## Resources
+
+- [Vercel Platforms Starter Kit](https://vercel.com/templates/next.js/platforms-starter-kit)
+- [Lee Robinson's video](https://youtu.be/vVYlCnNjEWA?si=jJHKYpxOyZGyU-B6)
+- [Next.js Rewrites documentation](https://nextjs.org/docs/app/api-reference/config/next-config-js/rewrites)
+- [Repository source code](https://github.com/sashkode/sashkode)
