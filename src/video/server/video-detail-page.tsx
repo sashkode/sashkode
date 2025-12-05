@@ -8,6 +8,7 @@ import { videos } from "~/features/videos/server/source";
 import { getMDXComponents } from "~/features/videos/shared/mdx-components";
 import { SubdomainLink } from "~/platform/client/components/subdomain-link";
 import { Page } from "~/platform/server/safe-page";
+import { ShareButton } from "~/ui/videos/share-button";
 import { TableOfContents } from "~/ui/videos/toc";
 
 type PageProps = {
@@ -28,9 +29,30 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     return {};
   }
 
+  const thumbnailUrl = `https://img.youtube.com/vi/${page.data.youtubeVideoId}/maxresdefault.jpg`;
+
   return {
     title: page.data.title,
     description: page.data.description,
+    openGraph: {
+      title: page.data.title,
+      description: page.data.description,
+      type: "article",
+      images: [
+        {
+          url: thumbnailUrl,
+          width: 1280,
+          height: 720,
+          alt: page.data.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: page.data.title,
+      description: page.data.description,
+      images: [thumbnailUrl],
+    },
   };
 }
 
@@ -63,9 +85,10 @@ export const VideoDetailPage = Page.create({
 
             {page.data.description ? <p className="mt-2 text-lg text-zinc-600 dark:text-zinc-400">{page.data.description}</p> : null}
 
-            <div className="mt-4 flex items-center gap-4 text-sm text-zinc-500 dark:text-zinc-500">
-              {page.data.author ? <span className="font-medium">{page.data.author}</span> : null}
+            <div className="mt-4 flex items-center gap-4 text-sm text-zinc-500 dark:text-zinc-400">
+              {page.data.author ? <span>{page.data.author}</span> : null}
               {page.data.date ? <time dateTime={String(page.data.date)}>{format(new Date(page.data.date), "MMMM d, yyyy")}</time> : null}
+              <ShareButton className="ml-auto" title={page.data.title} />
             </div>
 
             <div className="mt-8 aspect-video scroll-mt-24 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800" id="video">
