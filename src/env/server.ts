@@ -29,6 +29,8 @@ export const env = createEnv({
     CRON_SECRET: z.string().min(1),
     /** Base URL of the application for webhook callbacks */
     APP_URL: z.url(),
+    /** Vercel webhook secret for verifying deployment webhook signatures */
+    VERCEL_WEBHOOK_SECRET: z.string().min(1),
   },
   experimental__runtimeEnv: {},
 });

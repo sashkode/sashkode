@@ -31,6 +31,7 @@ const CLIENT_SECRET = process.env["YOUTUBE_CLIENT_SECRET"];
 const REDIRECT_URI = "http://localhost:3000/oauth/callback";
 const SCOPES = [
   "https://www.googleapis.com/auth/youtube.force-ssl", // Required for captions.download
+  "https://www.googleapis.com/auth/youtube", // Required for videos.update and commentThreads.insert
 ];
 
 if (!(CLIENT_ID && CLIENT_SECRET)) {
