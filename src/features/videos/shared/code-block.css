@@ -2,13 +2,38 @@
 :not(pre) > code {
   @apply rounded px-1.5 py-0.5 text-sm;
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
-  background-color: var(--code-background);
-  color: var(--code-keyword);
-  border: 1px solid var(--code-border);
+  background-color: var(--code-inline-bg);
+  color: var(--code-inline-text);
+  border: 1px solid var(--code-inline-border);
 }
 
-/* Code block styling with Aura theme */
+/* Code block styling with Aura theme - Light mode (default) */
 :root {
+  --code-background: #f8f8fc;
+  --code-foreground: #1a1a24;
+  --code-border: #e5e7eb;
+  --code-comment: #9ca3af;
+  --code-keyword: #7c3aed;
+  --code-string: #059669;
+  --code-function: #d97706;
+  --code-type: #0891b2;
+  --code-attribute: #c026d3;
+  --code-number: #059669;
+  --code-operator: #7c3aed;
+  --code-punctuation: #9ca3af;
+  --code-highlight-bg: oklch(0.95 0.02 270 / 50%);
+  --code-highlight-border: #7c3aed;
+  --code-title-bg: oklch(0.95 0.01 270);
+
+  /* Inline code - subtle light purple tint */
+  --code-inline-bg: #f3f0ff;
+  --code-inline-text: #7c3aed;
+  --code-inline-border: #e9e5f5;
+}
+
+/* Code block styling with Aura theme - Dark mode */
+.dark,
+[data-theme="dark"] {
   --code-background: #15141b;
   --code-foreground: #edecee;
   --code-border: #29263c;
@@ -21,6 +46,14 @@
   --code-number: #61ffca;
   --code-operator: #a277ff;
   --code-punctuation: #6d6d6d;
+  --code-highlight-bg: oklch(0.2 0.03 270 / 50%);
+  --code-highlight-border: #a277ff;
+  --code-title-bg: oklch(0.1 0.02 270);
+
+  /* Inline code - subtle dark purple tint */
+  --code-inline-bg: #1e1b2e;
+  --code-inline-text: #a277ff;
+  --code-inline-border: #29263c;
 }
 
 figure[data-rehype-pretty-code-figure] {
@@ -44,7 +77,7 @@ figure[data-rehype-pretty-code-figure] code {
 figure[data-rehype-pretty-code-figure] figcaption {
   @apply border-b px-4 py-2 text-sm font-medium;
   border-color: var(--code-border);
-  background-color: oklch(0.1 0.02 270);
+  background-color: var(--code-title-bg);
   color: var(--code-foreground);
 }
 
@@ -63,12 +96,21 @@ code[data-line-numbers] > [data-line]::before {
 /* Highlighted lines */
 [data-highlighted-line] {
   @apply -mx-4 border-l-2 px-4;
-  background-color: oklch(0.2 0.03 270 / 50%);
-  border-color: var(--code-keyword);
+  background-color: var(--code-highlight-bg);
+  border-color: var(--code-highlight-border);
 }
 
 /* Highlighted words/chars */
 [data-highlighted-chars] {
   @apply rounded px-1 py-0.5;
-  background-color: oklch(0.3 0.05 270 / 50%);
+  background-color: var(--code-highlight-bg);
+}
+
+/* Override fumadocs card color to use Aura theme for code blocks */
+:root {
+  --color-fd-card: var(--code-background);
+}
+
+.dark {
+  --color-fd-card: var(--code-background);
 }

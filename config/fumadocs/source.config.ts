@@ -2,7 +2,7 @@ import { remarkMdxFiles } from "fumadocs-core/mdx-plugins";
 import { applyMdxPreset, defineCollections, frontmatterSchema } from "fumadocs-mdx/config";
 import { z } from "zod";
 
-import { auraTheme } from "../../src/features/videos/shared/aura-theme";
+import { auraDarkTheme, auraLightTheme } from "../../src/features/videos/shared/aura-theme";
 
 export const videos = defineCollections({
   type: "doc",
@@ -17,8 +17,8 @@ export const videos = defineCollections({
     remarkPlugins: [remarkMdxFiles],
     rehypeCodeOptions: {
       themes: {
-        light: auraTheme,
-        dark: auraTheme,
+        light: auraLightTheme,
+        dark: auraDarkTheme,
       },
     },
   }),
