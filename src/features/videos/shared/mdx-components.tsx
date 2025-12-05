@@ -1,5 +1,6 @@
 import type { ComponentProps } from "react";
 
+import { Callout } from "fumadocs-ui/components/callout";
 import { CodeBlock, CodeBlockTab, CodeBlockTabs, CodeBlockTabsList, CodeBlockTabsTrigger, Pre } from "fumadocs-ui/components/codeblock";
 import { File, Files, Folder } from "fumadocs-ui/components/files";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
@@ -21,6 +22,7 @@ export function getMDXComponents(components: MDXComponents): MDXComponents {
     h4: H4,
     h5: H5,
     h6: H6,
+    Callout,
     Tab,
     Tabs,
     CodeBlockTab,

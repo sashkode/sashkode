@@ -254,6 +254,10 @@ In the Vercel dashboard, add the wildcard domain:
 
 Vercel will automatically provision SSL certificates for all subdomains using Let's Encrypt.
 
+<Callout title="www vs non-www domain" type="warn">
+I prefer redirecting `www.your-domain.com` → `your-domain.com` (non-www) rather than the other way around. This keeps the base domain as the canonical URL and avoids needing an additional rewrite rule for `www`. If you prefer using `www` as your primary domain, you'll need to update the rewrites configuration to handle `www` requests appropriately.
+</Callout>
+
 ### 2. Update Configuration (Optional)
 
 If you added custom domains to `createSubdomainConfig`, Vercel's environment variables will already include your production URL:
