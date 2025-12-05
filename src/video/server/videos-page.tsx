@@ -1,9 +1,19 @@
 import Image from "next/image";
+import type { Metadata } from "next";
 
 import { videos } from "~/features/videos/server/source";
 import { SubdomainLink } from "~/platform/client/components/subdomain-link";
 import { Page } from "~/platform/server/safe-page";
 import { getYoutubeThumbnailUrl } from "~/video/shared/youtube";
+
+export const metadata: Metadata = {
+  title: "All Videos",
+  description: "Browse all video tutorials and articles about modern web development with Next.js, TypeScript, and React.",
+  openGraph: {
+    title: "All Videos | sashkode",
+    description: "Browse all video tutorials and articles about modern web development with Next.js, TypeScript, and React.",
+  },
+};
 
 export const VideosPage = Page.create({
   path: "/videos",

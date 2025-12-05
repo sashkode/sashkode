@@ -1,9 +1,26 @@
 import Image from "next/image";
+import type { Metadata } from "next";
 
 import z from "zod";
 
 import { SubdomainLink } from "~/platform/client/components/subdomain-link";
 import { Page } from "~/platform/server/safe-page";
+
+type PageProps = {
+  params: Promise<{ subdomain: string }>;
+};
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { subdomain } = await params;
+  return {
+    title: `${subdomain} Subdomain`,
+    description: `Viewing the ${subdomain} subdomain on sashkode.`,
+    robots: {
+      index: false,
+      follow: false,
+    },
+  };
+}
 
 const SubdomainPageLayout = ({ children }: { children: React.ReactNode }) => (
   <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">

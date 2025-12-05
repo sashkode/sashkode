@@ -1,8 +1,18 @@
 import Image from "next/image";
+import type { Metadata } from "next";
 
 import { WavyBackground } from "~/features/home/client/components/wavy-background";
 import { SubdomainLink } from "~/platform/client/components/subdomain-link";
 import { Page } from "~/platform/server/safe-page";
+
+export const metadata: Metadata = {
+  title: "Home",
+  description: "Welcome to sashkode.dev • code tutorials, videos, and articles about modern web development.",
+  openGraph: {
+    title: "Home | sashkode.dev",
+    description: "Welcome to sashkode.dev • code tutorials, videos, and articles about modern web development.",
+  },
+};
 
 export default Page.create({
   path: "/root",
