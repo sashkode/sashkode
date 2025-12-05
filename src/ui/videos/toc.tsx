@@ -18,7 +18,7 @@ export function TableOfContents({ items, hasVideo }: TOCProps) {
   // Show empty state when no headings are found
   if (allItems.length === 0) {
     return (
-      <nav aria-label="Table of contents" className="lg:block! sticky top-24 hidden h-fit w-64 shrink-0 py-16">
+      <nav aria-label="Table of contents" className="lg:block! sticky top-19 hidden h-fit w-64 shrink-0 py-16">
         <h2 className="mb-4 font-medium text-xs text-zinc-400 uppercase tracking-wide dark:text-zinc-500">On this page</h2>
         <p className="text-sm text-zinc-500">No headings found</p>
       </nav>
@@ -27,7 +27,7 @@ export function TableOfContents({ items, hasVideo }: TOCProps) {
 
   return (
     <AnchorProvider toc={allItems}>
-      <nav aria-label="Table of contents" className="lg:block! sticky top-24 hidden h-fit max-h-[calc(100vh-8rem)] w-64 shrink-0 py-16">
+      <nav aria-label="Table of contents" className="lg:block! sticky top-19 hidden h-fit max-h-[calc(100vh-8rem)] w-64 shrink-0 py-16">
         <h2 className="mb-4 font-medium text-xs text-zinc-400 uppercase tracking-wide dark:text-zinc-500">On this page</h2>
         <div className="relative max-h-[calc(100vh-12rem)] overflow-y-auto pr-4" ref={containerRef}>
           <ScrollProvider containerRef={containerRef}>
@@ -70,7 +70,7 @@ function TOCLink({ item }: { item: TOCItemType }) {
 
   return (
     <li>
-      <TOCItem className="block py-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-900 data-[active=true]:font-medium data-[active=true]:text-aura-purple dark:text-zinc-400 dark:hover:text-zinc-100" href={item.url} onClick={handleClick} style={{ paddingLeft }}>
+      <TOCItem className="block py-1.25 text-sm text-zinc-500 transition-colors hover:text-zinc-900 data-[active=true]:font-medium data-[active=true]:text-aura-purple dark:text-zinc-400 dark:hover:text-zinc-100" href={item.url} onClick={handleClick} style={{ paddingLeft }}>
         {item.title}
       </TOCItem>
     </li>

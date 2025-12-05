@@ -259,38 +259,6 @@ async function getAccessToken(): Promise<string> {
 
 The OAuth flow must be completed manually once to obtain the refresh token, which is then stored in environment variables.
 
-### Caption Selection Logic
-
-The implementation prefers English captions and standard tracks over auto-generated (ASR):
-
-```typescript title="src/features/videos/server/captions.ts"
-export async function getCaptions(videoId: string): Promise<string | null> {
-  const captions = await listCaptions(videoId);
-
-  // Sort captions: prefer English, then standard over ASR // [!code highlight]
-  const sortedCaptions = [...captions].sort((a, b) => {
-    const aIsEnglish = a.snippet.language.startsWith("en") ? 0 : 1;
-    const bIsEnglish = b.snippet.language.startsWith("en") ? 0 : 1;
-    if (aIsEnglish !== bIsEnglish) {
-      return aIsEnglish - bIsEnglish;
-    }
-
-    const aIsStandard = a.snippet.trackKind === "standard" ? 0 : 1;
-    const bIsStandard = b.snippet.trackKind === "standard" ? 0 : 1;
-    return aIsStandard - bIsStandard;
-  });
-
-  const bestCaption = sortedCaptions[0];
-  const srtContent = await downloadCaption(bestCaption.id);
-  
-  return parseSrt(srtContent); // [!code highlight]
-}
-```
-
-The `parseSrt` function converts SRT format to plain text by filtering out timing codes and sequence numbers.
-
-See the [full caption fetching implementation](https://github.com/sashkode/sashkode/blob/trunk/src/features/videos/server/captions.ts).
-
 ## Creating the GitHub Issue
 
 The workflow creates a GitHub issue using the GraphQL API and assigns it to the Copilot agent:
@@ -516,33 +484,6 @@ export const videos = defineCollections({
 
 See the [Fumadocs configuration](https://github.com/sashkode/sashkode/blob/trunk/config/fumadocs/source.config.ts).
 
-### MDX Components
-
-Custom MDX components provide rich formatting:
-
-```tsx title="src/features/videos/shared/mdx-components.tsx"
-import { CodeBlock, Pre } from "fumadocs-ui/components/codeblock";
-import { File, Files, Folder } from "fumadocs-ui/components/files";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-import type { MDXComponents } from "mdx/types";
-
-export function getMDXComponents(components: MDXComponents): MDXComponents {
-  return {
-    ...components,
-    pre: ({ children, ...props }: ComponentProps<"pre">) => (
-      <CodeBlock keepBackground={true} {...props}> {/* [!code highlight] */}
-        <Pre>{children}</Pre>
-      </CodeBlock>
-    ),
-    Tab,
-    Tabs,
-    File,
-    Files,
-    Folder,
-  };
-}
-```
-
 ### Video Detail Page
 
 The page component renders the MDX with embedded YouTube player:
@@ -595,74 +536,6 @@ export const VideoDetailPage = Page.create({
 
 See the [video detail page implementation](https://github.com/sashkode/sashkode/blob/trunk/src/video/server/video-detail-page.tsx).
 
-## Structured Logging
-
-The codebase uses a custom Pino logger wrapper with scoped, structured logging:
-
-```typescript title="src/platform/server/logger.ts"
-export const Logger = createLogger();
-
-// Usage in webhook handler
-Logger.info(`Received webhook for video: ${title}`, {
-  scope: "YOUTUBE_WEBHOOK", // [!code highlight]
-  videoId,
-});
-
-// Usage in workflow
-Logger.info("Video metadata fetched", {
-  scope: "VIDEO_WORKFLOW", // [!code highlight]
-  videoId,
-  title: metadata?.title,
-});
-```
-
-The logger provides:
-- **Correlation IDs** for request tracking
-- **Scope-based organization** (e.g., `YOUTUBE_WEBHOOK`, `VIDEO_WORKFLOW`, `GITHUB_ISSUE`)
-- **Pretty formatting** in development with color-coded output
-- **Structured JSON** in production for log aggregation
-
-See the [logger implementation](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/logger.ts).
-
-## Why This Automation Matters
-
-This workflow demonstrates how small automations compound into massive productivity gains:
-
-**Before:**
-1. Publish video
-2. Write article outline
-3. Find code snippets
-4. Create GitHub permalinks
-5. Write explanatory text
-6. Format MDX
-7. Test locally
-8. Commit and deploy
-
-**After:**
-1. Publish video
-2. Merge PR
-
-The entire content creation pipeline runs on autopilot. The human review step ensures quality, but the heavy lifting—fetching data, finding relevant code, writing structured content—happens automatically.
-
-## What Could Go Wrong?
-
-The video title is tongue-in-cheek, but there are legitimate considerations:
-
-**Potential Issues:**
-- **Transcript unavailable** — Some videos may not have auto-captions enabled
-- **Copilot hallucinations** — The agent might reference non-existent code
-- **Rate limits** — GitHub API, YouTube API, and Copilot have rate limits
-- **Subscription expiry** — PubSubHubbub subscriptions expire every ~10 days
-- **Token refresh failures** — OAuth refresh tokens can expire or be revoked
-
-**Mitigations:**
-- **Idempotency checks** in workflow and issue creation
-- **Error handling** with structured logging
-- **Manual review** before merging PR
-- **Fallback to manual creation** if automation fails
-
-The workflow isn't perfect, but it doesn't need to be—it just needs to work most of the time and fail gracefully when it doesn't.
-
 ## Related Code
 
 Explore the complete implementation:
@@ -685,18 +558,3 @@ Explore the complete implementation:
 - [GitHub Copilot Agents](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-a-pr)
 - [Fumadocs](https://fumadocs.dev/)
 - [Next.js MDX](https://nextjs.org/docs/app/building-your-application/configuring/mdx)
-
-## Conclusion
-
-This automation pipeline shows what's possible when you combine modern tools:
-
-✅ **Durable workflows** handle long-running tasks and retries  
-✅ **AI agents** generate structured content from transcripts  
-✅ **Git-based content** integrates seamlessly with CI/CD  
-✅ **MDX rendering** provides rich, interactive documentation  
-
-The result is a self-updating content system: YouTube in → polished MDX out, with zero manual effort between publish and review.
-
-Small automations compound. This workflow saves hours per video, improves consistency, and ensures supporting materials are always available for viewers who want to dig into the code.
-
-Watch the video to see the entire system in action. This article gives you the implementation details to build your own automated content pipeline.
