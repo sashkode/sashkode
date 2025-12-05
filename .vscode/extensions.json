@@ -5,6 +5,7 @@
     "usernamehw.errorlens",
     "yoavbls.pretty-ts-errors",
     "bradlc.vscode-tailwindcss",
-    "amodio.toggle-excluded-files"
+    "amodio.toggle-excluded-files",
+    "unifiedjs.vscode-mdx"
   ]
 }
