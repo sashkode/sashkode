@@ -1,0 +1,612 @@
+---
+title: 5 Advanced Repo Tricks • Codegen, TS Plugins, and Stuff You've Never Used
+description: Go beyond basic repo setup with advanced techniques for codegen, TypeScript compiler plugins, custom lint rules, bundler plugins, and IDE automation that enforce correctness and improve developer experience.
+author: sashkode
+date: 2025-12-11
+youtubeVideoId: CzVkO4x91sM
+---
+
+Most repository setup guides stop at folder structure and config files. This article covers **five advanced techniques** that fundamentally change how your application behaves, how safe it is, and how much work it does for you automatically.
+
+These aren't just configuration tweaks—they're powerful tools that frameworks use internally, and you can use them too. Each technique provides actual code examples from this repository that you can reference and adapt.
+
+## 1. Codegen for End-to-End Type Safety
+
+Frameworks like Next.js, TanStack Start, Convex, and Prisma all use code generation to create type-safe interfaces. You can use the same approach to add type safety to any part of your codebase.
+
+### Example: Type-Safe Public Images
+
+The [`public-images.ts` plugin](https://github.com/sashkode/sashkode/blob/trunk/plugins/next/public-images.ts) generates TypeScript types for all images in the `/public` folder, providing autocomplete and type safety for Next.js Image components:
+
+```typescript title="plugins/next/public-images.ts"
+import fs from "node:fs";
+import path from "node:path";
+
+const IMAGE_EXTENSIONS = new Set([
+  ".jpg", ".jpeg", ".png", ".gif", ".webp", 
+  ".avif", ".svg", ".ico", ".bmp", ".tiff"
+]);
+
+function scanPublicImages(dir: string, basePath = ""): string[] {
+  const images: string[] = [];
+  
+  if (!fs.existsSync(dir)) {
+    return images;
+  }
+
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name;
+
+    if (entry.isDirectory()) {
+      images.push(...scanPublicImages(
+        path.join(dir, entry.name), 
+        relativePath
+      ));
+    } else if (IMAGE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+      images.push(`/${relativePath}`); // [!code highlight]
+    }
+  }
+
+  return images;
+}
+```
+
+The plugin generates a `.d.ts` file that augments the `next/image` module:
+
+```typescript title="plugins/next/public-images.ts"
+function generateTypeDefinition(images: string[]): string {
+  const unionType = images.map((img) => `"${img}"`).join("\n    | ");
+
+  return `declare module "next/image" {
+  import type { ImageProps as OriginalImageProps } from "next/dist/shared/lib/image-external";
+  import type { StaticImageData } from "next/dist/shared/lib/get-img-props";
+
+  export type PublicImagePath =
+    | ${unionType}; // [!code highlight]
+
+  type ExternalUrl =
+    | \`http://\${string}\`
+    | \`https://\${string}\`
+    | \`//\${string}\`;
+
+  type ImageSrc =
+    | PublicImagePath // [!code highlight]
+    | ExternalUrl
+    | StaticImageData
+    | { src: string; height: number; width: number };
+
+  export interface ImageProps extends Omit<OriginalImageProps, "src"> {
+    src: ImageSrc; // [!code highlight]
+  }
+
+  declare const Image: import("react").FC<ImageProps>;
+  export default Image;
+}`;
+}
+```
+
+### Automatic Regeneration
+
+The plugin runs automatically during development by importing it in `next.config.ts`:
+
+```typescript title="next.config.ts"
+import type { NextConfig } from "next";
+
+// Generate TypeScript types for public images
+import "./plugins/next/public-images"; // [!code highlight]
+
+const nextConfig: NextConfig = {
+  reactCompiler: true,
+  typedRoutes: true,
+  // ... other config
+};
+
+export default nextConfig;
+```
+
+Since `next.config.ts` is evaluated on every build and dev server start, the types regenerate automatically whenever you add or remove images. No manual scripts required.
+
+### The Result
+
+Now in your components, you get full autocomplete for public images:
+
+```tsx title="app/page.tsx"
+import Image from "next/image";
+
+export default function Page() {
+  return (
+    <Image 
+      src="/" // [!code highlight]
+      // ^ Autocomplete shows: /next.svg, /vercel.svg, etc.
+      alt="Logo"
+      width={100}
+      height={100}
+    />
+  );
+}
+```
+
+### When to Use Codegen
+
+Use codegen when you need:
+- **Type safety from external sources** — APIs, databases, file systems
+- **Generated clients** — SDK generation for API routes or external services
+- **Template code** — Boilerplate that follows predictable patterns
+- **Runtime-to-compile-time bridges** — Converting runtime data to TypeScript types
+
+See the [full implementation](https://github.com/sashkode/sashkode/blob/trunk/plugins/next/public-images.ts) for details on handling edge cases and output paths.
+
+## 2. Custom TypeScript Compiler Plugins
+
+TypeScript language service plugins let you add custom diagnostics, autocomplete, and validations that appear as red squiggly lines in your editor. This is more powerful than linting because plugins have access to the type system and file context.
+
+### Example: Page Route Validation
+
+The [`typescript-next-safe-page`](https://github.com/sashkode/sashkode/blob/trunk/plugins/typescript/next-safe-page/src/index.ts) plugin validates that page components declare paths matching their file location:
+
+```typescript title="plugins/typescript/next-safe-page/src/index.ts"
+function getExpectedPathFromFile(filePath: string, appDir: string): string | null {
+  const normalizedPath = filePath.replace(/\\/g, "/");
+  const appDirIndex = normalizedPath.indexOf(appDir);
+
+  if (appDirIndex === -1) {
+    return null;
+  }
+
+  const routePortion = normalizedPath.slice(appDirIndex + appDir.length);
+  const pageMatch = ROUTE_PORTION_REGEX.exec(routePortion);
+
+  if (!pageMatch?.[1]) {
+    return null;
+  }
+
+  const routePath = pageMatch[1];
+  return routePath === "" ? "/" : routePath; // [!code highlight]
+}
+```
+
+The plugin hooks into TypeScript's semantic diagnostics to add custom errors:
+
+```typescript title="plugins/typescript/next-safe-page/src/index.ts"
+function init(modules: { typescript: typeof ts }): ts.server.PluginModule {
+  const typescript = modules.typescript;
+
+  function create(info: ts.server.PluginCreateInfo): ts.LanguageService {
+    const config: PluginConfig = info.config || {};
+    const appDir = config.appDir || "/src/app";
+
+    const proxy = { ...info.languageService };
+
+    proxy.getSemanticDiagnostics = (fileName: string): ts.Diagnostic[] => { // [!code highlight]
+      const original = info.languageService.getSemanticDiagnostics(fileName);
+      const additional = getPageRouteDiagnostics(fileName, info.languageService, appDir, typescript); // [!code highlight]
+
+      return [...original, ...additional]; // [!code highlight]
+    };
+
+    return proxy;
+  }
+
+  return { create };
+}
+
+export default init;
+```
+
+### Plugin Configuration
+
+Register the plugin in `tsconfig.json`:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "next"
+      },
+      {
+        "name": "typescript-next-safe-page" // [!code highlight]
+      }
+    ]
+  }
+}
+```
+
+For local plugins, add them to `package.json` dependencies:
+
+```json title="package.json"
+{
+  "devDependencies": {
+    "typescript-next-safe-page": "file:./plugins/typescript/next-safe-page" // [!code highlight]
+  }
+}
+```
+
+### The Result
+
+If you declare a page with a mismatched path, you get an immediate TypeScript error:
+
+```tsx title="app/blog/page.tsx"
+import { Page } from "~/utils/next-safe-page";
+
+export default Page.create({
+  path: "/videos", // [!code --]
+  // Error: Path "/videos" doesn't match expected "/blog" for this file location
+  path: "/blog", // [!code ++]
+  // ... other options
+});
+```
+
+### When to Use TypeScript Plugins
+
+TypeScript plugins are ideal for:
+- **File-location-based rules** — Enforcing conventions based on where code lives
+- **Type system integration** — Validations that need type information
+- **Custom diagnostics** — Project-specific errors that appear in the editor
+- **Enhanced autocomplete** — Custom IntelliSense for your domain
+
+See the [complete plugin implementation](https://github.com/sashkode/sashkode/blob/trunk/plugins/typescript/next-safe-page/src/index.ts) and the related [Type Safety in Next.js video](https://youtu.be/iS45VpqEasA) for more context.
+
+## 3. Custom Lint Rules
+
+Linters catch style and architecture issues before runtime. While TypeScript plugins work with types, lint rules work with code structure and patterns.
+
+### Biome Configuration
+
+This repository uses [Biome](https://biomejs.dev/) for fast Rust-based linting and formatting. The configuration is modular, extending three separate config files:
+
+```json title="biome.json"
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": [
+    "./config/biome/core/biome.jsonc", // [!code highlight]
+    "./config/biome/react/biome.jsonc", // [!code highlight]
+    "./config/biome/next/biome.jsonc" // [!code highlight]
+  ],
+  "linter": {
+    "rules": {
+      "style": {
+        "noDefaultExport": "error", // [!code highlight]
+        "useBlockStatements": {
+          "level": "error",
+          "fix": "safe"
+        }
+      }
+    }
+  }
+}
+```
+
+### Context-Specific Overrides
+
+Use `overrides` to apply different rules based on file patterns:
+
+```json title="biome.json"
+{
+  "overrides": [
+    {
+      "includes": [
+        "**/page.tsx",
+        "**/layout.tsx",
+        "**/template.tsx",
+        "next.config.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDefaultExport": "off" // [!code highlight]
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/server/**/*.ts", "**/server/**/*.tsx"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "error" // [!code highlight]
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/env/**/*.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off" // [!code highlight]
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+This setup:
+- **Disallows default exports** everywhere except Next.js special files
+- **Enforces no console logs** in server-side code (prevents production logs)
+- **Allows process.env** only in environment configuration files
+
+### Ultracite Base Configuration
+
+Rather than configuring hundreds of rules manually, this repo uses [Ultracite](https://www.ultracite.ai) as a starting point. Ultracite provides best-practice rule sets for Biome.
+
+The configs are copied directly into the repository for transparency and customization:
+
+```text
+config/biome/
+├── core/biome.jsonc      # Language-agnostic rules
+├── react/biome.jsonc     # React-specific rules
+└── next/biome.jsonc      # Next.js-specific rules
+```
+
+See the [core configuration](https://github.com/sashkode/sashkode/blob/trunk/config/biome/core/biome.jsonc) for the complete rule set.
+
+### Running Biome
+
+```bash
+# Check for issues
+pnpm lint
+
+# Auto-fix issues
+pnpm lint:fix
+
+# Format code
+pnpm format
+```
+
+Most issues are automatically fixable. Biome is significantly faster than ESLint + Prettier.
+
+### When to Use Custom Lint Rules
+
+Custom linting is valuable for:
+- **Architecture enforcement** — Preventing patterns that break your design
+- **Team conventions** — Codifying team decisions into automated checks
+- **Code quality gates** — Catching common mistakes before code review
+- **Migration helpers** — Preventing old patterns during codebase modernization
+
+## 4. Bundler Plugins (Turbopack/Webpack)
+
+Bundler plugins transform code at build time, enabling powerful abstractions like React's `use client` and `use server` directives or Vercel Workflow's `use workflow` directive.
+
+### How Directives Work
+
+Directives like `use server` are implemented as bundler plugins that:
+1. **Scan for directive comments** at the top of files or functions
+2. **Transform the code** to split client and server code
+3. **Generate infrastructure** like API endpoints or RPC clients
+
+### Real-World Example: `use workflow`
+
+The [Vercel Workflow SDK](https://sdk.vercel.ai/docs) uses a bundler plugin to transform workflow functions:
+
+```typescript title="app/actions/process-order.ts"
+"use workflow";
+
+import { workflow } from "workflow/next";
+
+export async function processOrder(orderId: string) {
+  // This runs as a durable workflow
+  const order = await getOrder(orderId);
+  await processPayment(order);
+  await fulfillOrder(order);
+  await sendConfirmation(order);
+}
+```
+
+Behind the scenes, the plugin:
+- **Creates a workflow endpoint** at `/api/workflows/process-order`
+- **Generates client code** to invoke the workflow
+- **Sets up execution tracking** and state persistence
+
+This is all done transparently via bundler plugin code transformation.
+
+### Electron Example
+
+Felix Tellmann built a custom directive for an Electron project that simplifies IPC communication:
+
+```typescript
+"use electron";
+
+export async function openFile(path: string) {
+  // This code runs in Electron's main process
+  // The bundler plugin handles IPC automatically
+  const contents = await fs.readFile(path);
+  return contents;
+}
+```
+
+The plugin transforms this into proper IPC calls between renderer and main processes—eliminating boilerplate and reducing errors.
+
+### When to Use Bundler Plugins
+
+Bundler plugins are appropriate when you need to:
+- **Transform code at build time** — Modify code before it runs
+- **Create multi-environment abstractions** — Code that runs in different contexts
+- **Auto-generate infrastructure** — API routes, types, or configuration
+- **Enforce import restrictions** — Prevent certain modules from being imported
+
+Building a bundler plugin requires understanding your bundler's API (Webpack loaders/plugins or Turbopack plugins), but the payoff is significant for the right use cases.
+
+## 5. IDE-Native Automation
+
+Modern IDEs like VS Code provide powerful automation capabilities beyond basic code editing. You can trigger tests, run codegen, invoke AI prompts, and execute repo-specific tasks—all without leaving your editor.
+
+### VS Code Tasks
+
+Define custom tasks in `.vscode/tasks.json`:
+
+```json title=".vscode/tasks.json"
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Watch: Regenerate types",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["dev"],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: Current file",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["test", "${file}"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    }
+  ]
+}
+```
+
+Access tasks via **Command Palette → Tasks: Run Task**.
+
+### GitHub Copilot Custom Prompts
+
+Configure reusable AI prompts for repetitive tasks. The built-in `/doc` prompt generates JSDoc comments automatically:
+
+```typescript
+// Before
+export function createSlug(title: string) {
+  return title.toLowerCase().replace(/\s+/g, "-");
+}
+
+// Select function, run Copilot with /doc prompt
+
+// After
+/**
+ * Converts a title string into a URL-friendly slug.
+ * @param title - The title to convert
+ * @returns A lowercase slug with spaces replaced by hyphens
+ * @example
+ * createSlug("Hello World") // Returns "hello-world"
+ */
+export function createSlug(title: string) {
+  return title.toLowerCase().replace(/\s+/g, "-");
+}
+```
+
+You can create custom prompts for:
+- Generating test cases
+- Converting types to runtime validators
+- Refactoring patterns specific to your codebase
+- Explaining complex code sections
+
+### Package Manager Scripts
+
+The `package.json` in this repo includes several automation scripts:
+
+```json title="package.json"
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "lint": "biome check",
+    "lint:fix": "biome check --fix",
+    "typecheck": "tsc --noEmit",
+    "format": "biome format --write",
+    "build:ts-plugin": "tsc -p plugins/typescript/next-safe-page/tsconfig.json", // [!code highlight]
+    "predev:ssl": "./config/ssl/trust.sh",
+    "dev:ssl": "next dev --experimental-https ..." // [!code highlight]
+  }
+}
+```
+
+Key scripts:
+- **`build:ts-plugin`** — Compiles TypeScript plugins before use
+- **`dev:ssl`** — Runs dev server with HTTPS and custom certificates
+- **`predev:ssl`** — Pre-hook that trusts SSL certificates before starting
+
+### File Watchers
+
+For continuous codegen, use file watchers in your IDE or tools like `nodemon` to regenerate types whenever source files change:
+
+```bash
+# Watch public folder and regenerate types on change
+nodemon --watch public --exec "node plugins/next/public-images.ts"
+```
+
+Or integrate watchers into your dev script to run alongside Next.js.
+
+### When to Use IDE Automation
+
+IDE automation shines when:
+- **Reducing context switching** — Stay in your editor instead of switching to terminal
+- **Repetitive tasks** — Auto-generate code, docs, or tests
+- **Live feedback** — Watch mode for type generation or validation
+- **AI-powered workflows** — Custom prompts for domain-specific tasks
+
+## Bonus: Local SSL/HTTPS
+
+Running your local environment with HTTPS eliminates environment-specific exceptions and enables testing of features that require secure contexts (like service workers, secure cookies, and OAuth flows).
+
+### Quick Setup with Next.js 15+
+
+```bash
+next dev --experimental-https
+```
+
+Next.js will generate and install SSL certificates automatically. However, **this doesn't support subdomains**.
+
+### Custom Certificates for Subdomains
+
+For multi-tenant apps or subdomain-based routing, you need wildcard certificates. This repository includes complete [SSL setup scripts](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/setup.sh) that:
+
+1. Generate a Certificate Authority (CA)
+2. Create certificates for `localhost`, `app.localhost`, and `*.app.localhost`
+3. Trust the CA in your system keychain
+
+Run the setup:
+
+```bash
+./config/ssl/setup.sh
+```
+
+Then start Next.js with custom certificates:
+
+```bash
+pnpm dev:ssl
+```
+
+See the complete guide in the [Local SSL video](https://youtu.be/JcwIRIIpkfI) and [article](https://github.com/sashkode/sashkode/blob/trunk/content/videos/local-sslhttps-in-nextjs-works-for-subdomains.mdx).
+
+### Benefits of Local HTTPS
+
+- **No environment-specific code** — Same security context in dev and production
+- **Test OAuth flows locally** — Many providers require HTTPS callbacks
+- **Secure cookies work** — Test `Secure` and `SameSite` attributes properly
+- **Service worker testing** — Service workers require secure contexts
+- **Subdomain support** — Test multi-tenant architectures realistically
+
+The [subdomain configuration](https://github.com/sashkode/sashkode/blob/trunk/config/ssl/next-subdomains.ts) handles rewrites and redirects for local subdomain routing.
+
+## Putting It All Together
+
+These five techniques (plus the SSL bonus) form a powerful toolkit for creating robust, type-safe, and productive development environments:
+
+1. **Codegen** — Generate types and clients from source of truth
+2. **TypeScript Plugins** — Enforce project-level rules in the type system
+3. **Custom Lint Rules** — Catch architecture mistakes before runtime
+4. **Bundler Plugins** — Transform code to enable high-level abstractions
+5. **IDE Automation** — Reduce friction with editor-native workflows
+6. **Local HTTPS** — Match production environment characteristics
+
+Each technique addresses different problems, but they all share a common goal: **make correct code easy to write and incorrect code hard to write**.
+
+## Further Exploration
+
+Explore the repository to see these techniques in action:
+
+- [Codegen: Public Images Plugin](https://github.com/sashkode/sashkode/blob/trunk/plugins/next/public-images.ts)
+- [TypeScript Plugin: Page Routes](https://github.com/sashkode/sashkode/blob/trunk/plugins/typescript/next-safe-page/src/index.ts)
+- [Biome Configuration](https://github.com/sashkode/sashkode/blob/trunk/biome.json)
+- [SSL Setup Scripts](https://github.com/sashkode/sashkode/tree/trunk/config/ssl)
+- [Next.js Configuration](https://github.com/sashkode/sashkode/blob/trunk/next.config.ts)
+
+For more advanced type safety patterns, watch the [Type Safety in Next.js video](https://youtu.be/iS45VpqEasA) and read the [companion article](https://github.com/sashkode/sashkode/blob/trunk/content/videos/why-im-not-switching-to-tan-stack-start-type-safety-in-nextjs.mdx).
