@@ -4,12 +4,12 @@ import type { Metadata } from "next";
 import { format } from "date-fns";
 import { ChevronLeft } from "lucide-react";
 
+import { ShareButton } from "~/features/videos/client/share-button";
+import { TableOfContents } from "~/features/videos/client/toc";
 import { videos } from "~/features/videos/server/source";
 import { getMDXComponents } from "~/features/videos/shared/mdx-components";
 import { SubdomainLink } from "~/platform/client/components/subdomain-link";
 import { Page } from "~/platform/server/safe-page";
-import { ShareButton } from "~/ui/videos/share-button";
-import { TableOfContents } from "~/ui/videos/toc";
 
 type PageProps = {
   params: Promise<{ slug: string }>;

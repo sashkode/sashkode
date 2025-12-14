@@ -2,9 +2,9 @@ import Image from "next/image";
 import type { Metadata } from "next";
 
 import { videos } from "~/features/videos/server/source";
+import { getYoutubeThumbnailUrl } from "~/features/videos/shared/youtube";
 import { SubdomainLink } from "~/platform/client/components/subdomain-link";
 import { Page } from "~/platform/server/safe-page";
-import { getYoutubeThumbnailUrl } from "~/video/shared/youtube";
 
 export const metadata: Metadata = {
   title: "All Videos",

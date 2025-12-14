@@ -109,27 +109,30 @@
   "overrides": [
     {
       "includes": [
-        "**/page.tsx",
-        "**/layout.tsx",
-        "**/template.tsx",
-        "**/error.tsx",
-        "**/global-error.tsx",
-        "**/loading.tsx",
-        "**/not-found.tsx",
-        "**/default.tsx",
-        "**/page.ts",
-        "**/layout.ts",
-        "**/template.ts",
-        "**/error.ts",
-        "**/global-error.ts",
-        "**/loading.ts",
-        "**/not-found.ts",
-        "**/default.ts",
+        "src/app/**/page.tsx",
+        "src/app/**/layout.tsx",
+        "src/app/**/template.tsx",
+        "src/app/**/error.tsx",
+        "src/app/**/global-error.tsx",
+        "src/app/**/loading.tsx",
+        "src/app/**/not-found.tsx",
+        "src/app/**/default.tsx",
+        "src/app/**/page.ts",
+        "src/app/**/layout.ts",
+        "src/app/**/template.ts",
+        "src/app/**/error.ts",
+        "src/app/**/global-error.ts",
+        "src/app/**/loading.ts",
+        "src/app/**/not-found.ts",
+        "src/app/**/default.ts",
         "next.config.ts",
         "postcss.config.mjs"
       ],
       "linter": {
         "rules": {
+          "performance": {
+            "noBarrelFile": "off"
+          },
           "style": {
             "noDefaultExport": "off"
           }

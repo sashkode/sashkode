@@ -75,6 +75,7 @@
     "**/vercel.json": true,
     "release-lock.json": true,
     "**/.turbo": true,
+    "**/.well-known": true,
     ".turbo": true,
     ".vscode": true,
     ".husky": true,

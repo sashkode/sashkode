@@ -6,7 +6,7 @@ import { File, Files, Folder } from "fumadocs-ui/components/files";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import type { MDXComponents } from "mdx/types";
 
-import { H1, H2, H3, H4, H5, H6 } from "~/ui/videos/heading";
+import { H1, H2, H3, H4, H5, H6 } from "~/features/videos/client/heading";
 
 export function getMDXComponents(components: MDXComponents): MDXComponents {
   return {
