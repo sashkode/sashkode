@@ -1,0 +1,314 @@
+---
+title: Infrastructure-as-Code Sucks • Why Framework-Defined Infrastructure is the Future
+description: Why frameworks and libraries should define their own infrastructure requirements through code, not configuration files—and how to implement this pattern with bundler plugins and adapters.
+author: sashkode
+date: 2025-12-18
+youtubeVideoId: KJfjVUsj0PY
+---
+
+Infrastructure-as-code promised to solve deployment complexity, but it introduced new problems: managing environments, synchronizing state, and maintaining separate configuration files that drift from application code.
+
+**Framework-defined infrastructure** flips this model: instead of writing infrastructure configs separately, the framework parses your application code at build time and provisions infrastructure automatically. This article explores why this pattern matters, how modern libraries are adopting it, and how you can implement it yourself.
+
+## The Problem with Infrastructure-as-Code
+
+Traditional infrastructure-as-code tools like Terraform, Pulumi, or SST require you to:
+
+1. **Maintain separate config files** that describe infrastructure intent
+2. **Manually synchronize** infrastructure definitions with application code
+3. **Manage environment state** across development, staging, and production
+4. **Handle drift** when configs diverge from actual infrastructure
+
+The fundamental issue: your infrastructure intent lives in a different place than your application code.
+
+## Framework-Defined Infrastructure: The Vercel Model
+
+In 2023, Vercel published an [article](https://vercel.com/blog/framework-defined-infrastructure) introducing framework-defined infrastructure:
+
+> The deployment environment automatically provisions infrastructure derived from the framework and the applications written in it.
+
+### How It Works
+
+At build time, the bundler or compiler:
+
+1. **Parses your application code** to understand infrastructure needs
+2. **Extracts the intent** (what resources are required)
+3. **Generates infrastructure configuration** automatically
+4. **Provisions resources** for that specific deployment
+
+This is already how Next.js works. When you run `next build`:
+
+- **Static pages** → CDN
+- **Dynamic routes** → Lambdas
+- **Middleware** → Edge runtime
+- **API routes** → Serverless functions
+- **Assets** → Optimized and cached
+
+Hosting platforms that understand Next.js (like Vercel) provision all this infrastructure automatically. No Terraform files, no manual configuration.
+
+## Real-World Example: Vercel Workflow
+
+The [Vercel Workflow SDK](https://sdk.vercel.ai/docs) demonstrates library-defined infrastructure. This repository uses it to automate video-to-article generation:
+
+```typescript title="src/features/videos/server/video-to-article.workflow.ts"
+import { sleep } from "workflow";
+import { start } from "workflow/api";
+
+export async function videoToArticleWorkflow(videoId: string) {
+  "use workflow"; // [!code highlight]
+
+  // Step 1: Fetch video metadata
+  const metadata = await fetchVideoMetadata(videoId);
+  
+  // Step 2: Fetch transcript (with retry logic)
+  let transcript = await fetchTranscript(videoId);
+  
+  if (!transcript) {
+    await sleep("2h"); // [!code highlight]
+    transcript = await fetchTranscript(videoId);
+  }
+
+  // Step 3: Create GitHub issue for Copilot
+  const issueUrl = await createCopilotIssue({ videoId, metadata, transcript });
+  
+  return { success: true, issueUrl };
+}
+```
+
+The `"use workflow"` directive tells the bundler this function needs durable execution infrastructure. Behind the scenes, the framework provisions:
+
+- **Workflow execution engine** for step coordination
+- **State persistence** to survive restarts
+- **Queue infrastructure** for scheduling and retries
+- **API endpoints** to trigger and monitor workflows
+
+See the [full workflow implementation](https://github.com/sashkode/sashkode/blob/trunk/src/features/videos/server/video-to-article.workflow.ts) for complete context.
+
+### The Adapter Pattern: "Worlds"
+
+Workflow uses "worlds" to define how infrastructure gets provisioned:
+
+```typescript title="next.config.ts"
+import { withWorkflow } from "workflow/next"; // [!code highlight]
+
+const nextConfig: NextConfig = {
+  // ... your config
+};
+
+export default withWorkflow(withMDX(nextConfig)); // [!code highlight]
+```
+
+The `withWorkflow` wrapper is an adapter that:
+
+- **Detects workflow directives** during build
+- **Generates infrastructure definitions** (queues, endpoints, handlers)
+- **Integrates with the hosting platform** (Vercel, AWS, etc.)
+
+Different "worlds" implement the same interface for different platforms:
+
+- `@vercel/workflow` — Uses Vercel Queues
+- `@local/workflow` — Uses in-memory queues for development
+- Community worlds for AWS, GCP, Cloudflare, etc.
+
+This is library-defined infrastructure: the library declares what it needs, and adapters handle provisioning.
+
+## Environment Synchronization
+
+One of the biggest wins: **infrastructure matches your git branch automatically**.
+
+When you push a PR, Vercel creates a preview deployment. With framework-defined infrastructure:
+
+- The build analyzes your code
+- Provisions infrastructure for that specific commit
+- Connects the deployment to isolated resources
+- Tears it down when the PR closes
+
+No manual environment management. No state drift. The infrastructure **is** the code.
+
+### Local Development
+
+Framework-defined infrastructure solves local development too. This repository runs workflows locally:
+
+```bash
+pnpm dev
+```
+
+The local adapter substitutes cloud resources with local equivalents:
+
+- Queues → In-memory queues
+- Durable storage → Local SQLite
+- Background jobs → Local process
+
+The same `"use workflow"` code runs everywhere without environment-specific conditionals.
+
+## Building Your Own: Bundler Plugins
+
+You can implement framework-defined infrastructure for your own needs. The video demonstrates a custom implementation for Upstash queues.
+
+### Example: Queue Discovery with Webpack
+
+Here's the pattern:
+
+1. **Create a runtime API** that developers use in code
+2. **Build a bundler plugin** that scans for API usage
+3. **Extract infrastructure intent** into a registry
+4. **Generate provisioning code** from the registry
+
+```typescript title="client/queue.ts"
+import { createQueue } from "./create-queue";
+
+// Developer creates a queue in application code
+export const sampleQueue = createQueue<{ orderId: string }>({
+  name: "sample-queue", // [!code highlight]
+});
+
+// Publish messages
+await sampleQueue.publish({ orderId: "123" });
+
+// Handle messages
+export async function POST(request: Request) {
+  return sampleQueue.handleMessage(request, async (message) => {
+    // Process message
+    console.log(message.orderId);
+  });
+}
+```
+
+The bundler plugin finds all `createQueue` calls and generates:
+
+```typescript title="generated/upstash/registry.ts"
+export const QUEUES = {
+  "sample-queue": {
+    name: "sample-queue",
+    destination: "/api/queues/sample-queue",
+  },
+} as const;
+
+export type QueueName = keyof typeof QUEUES; // [!code highlight]
+```
+
+Now your infrastructure is:
+
+- **Defined in code** alongside usage
+- **Type-safe** (can't reference non-existent queues)
+- **Environment-aware** (branch names can namespace queue names)
+- **Automatically provisioned** from the registry
+
+This is the same pattern Next.js uses for routes, Prisma uses for database schema, and Workflow uses for durable functions.
+
+## Key Principles
+
+Framework-defined infrastructure succeeds when:
+
+1. **Infrastructure is declared in application code** using directives or library calls
+2. **Build-time analysis extracts intent** without executing runtime code
+3. **Adapters handle provisioning** for different platforms
+4. **Local substitutes exist** for development
+5. **Types are generated** to enforce correctness
+
+## Why This Matters More Than Ever
+
+Modern libraries increasingly require infrastructure:
+
+- **Workflow engines** need queues and state persistence
+- **Real-time features** need WebSocket infrastructure
+- **AI agents** need durable execution
+- **Background jobs** need schedulers
+
+Pretending infrastructure doesn't exist doesn't work. Libraries that require infrastructure should **define** it, not force developers to configure it separately.
+
+## Codegen and Automation in This Repo
+
+This repository already uses several build-time automation techniques that follow the same philosophy:
+
+### Type-Safe Public Images
+
+The [`public-images` plugin](https://github.com/sashkode/sashkode/blob/trunk/plugins/next/public-images.ts) scans the `/public` folder and generates TypeScript types for Next.js Image components:
+
+```typescript title="plugins/next/public-images.ts"
+function scanPublicImages(dir: string, basePath = ""): string[] {
+  const images: string[] = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      images.push(...scanPublicImages(path.join(dir, entry.name), relativePath));
+    } else if (IMAGE_EXTENSIONS.has(path.extname(entry.name))) {
+      images.push(`/${relativePath}`); // [!code highlight]
+    }
+  }
+
+  return images;
+}
+```
+
+The plugin generates a type definition that augments `next/image`:
+
+```typescript title=".next/types/public-images.d.ts"
+declare module "next/image" {
+  export type PublicImagePath =
+    | "/next.svg"
+    | "/vercel.svg"
+    | "/og-image.png";
+
+  type ImageSrc = PublicImagePath | ExternalUrl | StaticImageData;
+
+  export interface ImageProps extends Omit<OriginalImageProps, "src"> {
+    src: ImageSrc; // [!code highlight]
+  }
+}
+```
+
+Now using invalid image paths is a type error, not a runtime error.
+
+### Automatic Execution
+
+The plugin runs automatically by importing it in `next.config.ts`:
+
+```typescript title="next.config.ts"
+import "~/env/client";
+import "~/env/server";
+
+// Generate TypeScript types for public images
+import "./plugins/next/public-images"; // [!code highlight]
+
+const nextConfig: NextConfig = {
+  // ... config
+};
+
+export default withWorkflow(withMDX(nextConfig));
+```
+
+Since `next.config.ts` is evaluated on every build, the types regenerate automatically. This is the same pattern you'd use for infrastructure generation.
+
+See the [5 Advanced Repo Tricks article](https://github.com/sashkode/sashkode/blob/trunk/content/videos/5-advanced-repo-tricks-codegen-ts-plugins-and-stuff-youve-never-used.mdx) for more codegen examples.
+
+## Moving Forward
+
+Infrastructure-as-code tools aren't going away—they're just not the **source of truth** anymore. Instead:
+
+- **Application code declares intent** (queues, databases, functions)
+- **Build-time plugins extract requirements** (what infrastructure is needed)
+- **IaC tools provision resources** (but from generated config, not manual)
+
+The source of truth is your application code. Infrastructure tools become **implementers** rather than **definers**.
+
+This is already happening:
+
+- **Next.js** defines routing and rendering infrastructure
+- **Prisma** defines database schema and migrations
+- **Workflow** defines durable execution infrastructure
+- **tRPC** defines API contracts
+
+If you're building libraries or internal tooling, consider this pattern. Don't force users to configure infrastructure—let them declare what they need, and provision it automatically.
+
+## Further Exploration
+
+Explore how this repository uses build-time automation and infrastructure definition:
+
+- [Workflow Implementation](https://github.com/sashkode/sashkode/blob/trunk/src/features/videos/server/video-to-article.workflow.ts) — Durable workflow with `"use workflow"` directive
+- [Next.js Config](https://github.com/sashkode/sashkode/blob/trunk/next.config.ts) — Workflow adapter integration
+- [Public Images Plugin](https://github.com/sashkode/sashkode/blob/trunk/plugins/next/public-images.ts) — Codegen at build time
+- [5 Advanced Tricks](https://github.com/sashkode/sashkode/blob/trunk/content/videos/5-advanced-repo-tricks-codegen-ts-plugins-and-stuff-youve-never-used.mdx) — More codegen patterns
+
+For the Upstash queue example from the video, see the [auto-upstash repository](https://github.com/sashkode/auto-upstash).
