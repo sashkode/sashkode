@@ -231,6 +231,8 @@ function scanPublicImages(dir: string, basePath = ""): string[] {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
 
   for (const entry of entries) {
+    const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name; // [!code highlight]
+
     if (entry.isDirectory()) {
       images.push(...scanPublicImages(path.join(dir, entry.name), relativePath));
     } else if (IMAGE_EXTENSIONS.has(path.extname(entry.name))) {
