@@ -1,0 +1,434 @@
+---
+title: How to SHIP Code in 2026 • Fast Software Development in the Age of AI
+description: Three critical practices for shipping fast in 2026—stacked diffs for faster reviews, agentic workflows beyond code, and code-defined infrastructure—plus the tech stack that makes it work.
+author: sashkode
+date: 2025-12-26
+youtubeVideoId: l7ibEjHs18U
+---
+
+Shipping fast in 2026 isn't about adopting every new framework or letting AI write random code. It's about **structure, leverage, and removing friction** across your entire product surface—not just application code.
+
+This article breaks down three critical practices for velocity: stacked diffs for PR reviews, agentic workflows beyond engineering, and code-defined infrastructure. Watch the video for the full discussion; this article provides the implementation details and links to real code.
+
+## Stacked Diffs: The UX for AI-Generated Code
+
+Traditional pull request workflows create bottlenecks. You branch from `main`, write code, wait for review, then branch again. This encourages large PRs (to avoid blocking), which take longer to review, which creates more blocking.
+
+**Stacked diffs** invert this: create small, incremental PRs that build on each other without waiting for reviews to complete.
+
+### How Stacked Diffs Work
+
+Instead of this:
+
+```
+main → feature-branch (wait for review) → main → next-feature
+```
+
+You do this:
+
+```
+main → PR1 (small change, under review)
+        ↓
+       PR2 (builds on PR1, under review)
+        ↓
+       PR3 (builds on PR2)
+```
+
+Each PR contains a single logical change—one file, one endpoint, one component. Developers aren't blocked; they keep building while reviews happen concurrently.
+
+### Why This Matters More in 2026
+
+AI coding tools like Cursor and GitHub Copilot generate large amounts of code quickly. Without structure, you end up with massive PRs that are hard to review and slow to merge.
+
+Stacked diffs force granularity:
+
+1. **AI creates feature flag** → PR1 (one file)
+2. **AI creates API endpoint** → PR2 (builds on PR1)
+3. **AI creates UI component** → PR3 (builds on PR2)
+
+Each PR is reviewable in minutes, not hours.
+
+### Tooling: Graphite and GitHub
+
+[Graphite](https://graphite.dev) pioneered the stacked diff UX—handling the git complexity (rebasing dependent branches, syncing with main) behind a clean interface.
+
+In late 2025, **Cursor acquired Graphite**, signaling that stacked diffs and AI coding are converging. The future: your IDE and your PR review workflow are one system.
+
+GitHub is also [building native stacked diffs](https://github.com/features/stack), so this pattern will become mainstream regardless of tooling choice.
+
+### Feature Flags and Small PRs
+
+Stacked diffs pair perfectly with feature flags. Ship incomplete features behind flags:
+
+```typescript title="app/api/new-endpoint/route.ts"
+import { featureFlags } from "~/config/feature-flags";
+
+export async function POST(request: Request) {
+  if (!featureFlags.newFeatureEnabled) { // [!code highlight]
+    return new Response("Feature not enabled", { status: 404 });
+  }
+
+  // New feature code
+  return new Response("Success");
+}
+```
+
+PR1 adds the flag. PR2 adds the endpoint (hidden). PR3 adds the UI (hidden). PR4 flips the flag. Each PR is small, safe, and reviewable.
+
+## Agentic Workflows Beyond Engineers
+
+In 2025, developers got AI-powered coding assistants. In 2026, the rest of the product team needs them too.
+
+### The Gap
+
+Developers use agentic tools daily:
+
+- **Cursor** for code generation
+- **GitHub Copilot** for autocomplete
+- **Code Rabbit** for PR reviews
+
+But product managers, designers, and project managers still work in tools that don't understand the codebase. They can't:
+
+- Query the codebase for feasibility
+- Generate specs that reference actual implementations
+- Update roadmaps based on code changes
+
+### Where This Is Heading
+
+AI agents for non-technical teammates need to:
+
+1. **Understand the codebase** — query APIs, data models, feature flags
+2. **Integrate with their tools** — Linear, ClickUp, Figma, Notion
+3. **Operate with guardrails** — suggest changes, not break things
+
+Tools like [ClickUp Agents](https://clickup.com/ai) and Linear's AI features are early examples, but they're not yet code-aware in the way developer tools are.
+
+The goal: a product manager can ask "Is the new checkout flow ready to ship?" and the agent checks feature flags, test coverage, and PR status—then updates Linear automatically.
+
+### Durable Workflows for Product Automation
+
+This repository uses [Vercel Workflow Dev Kit](https://useworkflow.dev/) to automate video-to-article generation. The same pattern applies to product workflows:
+
+```typescript title="src/features/videos/server/video-to-article.workflow.ts"
+export async function videoToArticleWorkflow(videoId: string) {
+  "use workflow"; // [!code highlight]
+
+  // Step 1: Fetch video metadata
+  const metadata = await fetchVideoMetadata(videoId);
+
+  // Step 2: Fetch transcript (with retry logic)
+  let transcript = await fetchTranscript(videoId);
+
+  if (!transcript) {
+    await sleep("2h"); // Durable execution: workflow pauses and resumes // [!code highlight]
+    transcript = await fetchTranscript(videoId);
+  }
+
+  // Step 3: Create GitHub issue assigned to Copilot agent
+  const issueUrl = await createCopilotIssue({ videoId, metadata, transcript });
+
+  return { success: true, issueUrl };
+}
+```
+
+See the [full workflow implementation](https://github.com/sashkode/sashkode/blob/trunk/src/features/videos/server/video-to-article.workflow.ts).
+
+The `"use workflow"` directive tells the framework this function needs durable execution—the ability to pause, retry, and resume across server restarts. No manual queue management, no state tracking.
+
+This pattern extends to product workflows:
+
+- **Spec creation** — agent drafts spec, pauses for human review, then creates tickets
+- **Feature validation** — agent checks code, runs tests, updates roadmap
+- **Documentation** — agent watches PRs, generates docs, publishes on merge
+
+The key: workflows that integrate tools (code + product + docs) without requiring developers to build custom integrations.
+
+## Code-Defined Infrastructure
+
+Infrastructure-as-code (Terraform, Pulumi, SST) has a fundamental problem: **your infrastructure intent lives separately from your application code.**
+
+**Code-defined infrastructure** flips this: your application code declares what infrastructure it needs, and the framework provisions it automatically.
+
+### The Problem with IaC
+
+Traditional IaC requires you to:
+
+1. Write application code that uses a queue
+2. Write separate Terraform/Pulumi config for that queue
+3. Keep both files synchronized
+4. Manage state across environments
+
+The application code is the source of truth for what infrastructure you need. Config files are a translation layer that introduces drift.
+
+### How Code-Defined Infrastructure Works
+
+Instead of config files, the framework analyzes your code at build time:
+
+1. **Parses application code** to discover infrastructure needs
+2. **Extracts intent** (what resources are required)
+3. **Generates provisioning config** automatically
+4. **Provisions resources** for that deployment
+
+This is already how Next.js works. When you write:
+
+```typescript title="app/api/users/route.ts"
+export async function GET() {
+  // This is a dynamic route
+  return Response.json({ users: [] });
+}
+```
+
+Next.js knows this needs a serverless function. Vercel provisions it automatically. No config file.
+
+### Vercel Workflow: Library-Defined Infrastructure
+
+The Workflow SDK demonstrates library-defined infrastructure. The `"use workflow"` directive declares infrastructure needs:
+
+```typescript
+export async function processOrderWorkflow(orderId: string) {
+  "use workflow"; // Declares: I need durable execution // [!code highlight]
+
+  const order = await fetchOrder(orderId);
+  await sleep("1d"); // Declares: I need scheduled execution // [!code highlight]
+  await sendReminder(orderId);
+}
+```
+
+The framework provisions:
+
+- **Workflow execution engine** for step coordination
+- **State persistence** for durability
+- **Queue infrastructure** for scheduling
+- **API endpoints** to trigger workflows
+
+The `withWorkflow` adapter in `next.config.ts` handles provisioning:
+
+```typescript title="next.config.ts"
+import { withWorkflow } from "workflow/next"; // [!code highlight]
+
+const nextConfig: NextConfig = {
+  // ... config
+};
+
+export default withWorkflow(withMDX(nextConfig)); // [!code highlight]
+```
+
+See the [Next.js config](https://github.com/sashkode/sashkode/blob/trunk/next.config.ts) for the complete setup.
+
+The adapter scans your code for `"use workflow"` directives and generates infrastructure automatically. No separate config files.
+
+### Preview Environments and Database Branching
+
+Code-defined infrastructure shines for preview environments. When you push a PR:
+
+1. **Vercel deploys a preview** from that commit
+2. **Analyzes the code** to determine infrastructure needs
+3. **Provisions isolated resources** for that preview
+4. **Tears down resources** when the PR closes
+
+Combined with [PlanetScale database branching](https://planetscale.com/docs/concepts/branching), each PR gets:
+
+- Isolated compute
+- Isolated database branch
+- Isolated queues/workflows
+
+All from the same code. No manual environment configuration.
+
+### Build-Time Codegen in This Repository
+
+This repository uses build-time analysis to generate types and enforce correctness:
+
+#### Type-Safe Public Images
+
+The [`public-images` plugin](https://github.com/sashkode/sashkode/blob/trunk/plugins/next/public-images.ts) scans `/public` and generates types for Next.js Image components:
+
+```typescript title="plugins/next/public-images.ts"
+function scanPublicImages(dir: string, basePath = ""): string[] {
+  const images: string[] = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name;
+
+    if (entry.isDirectory()) {
+      images.push(...scanPublicImages(path.join(dir, entry.name), relativePath));
+    } else if (IMAGE_EXTENSIONS.has(path.extname(entry.name))) {
+      images.push(`/${relativePath}`); // [!code highlight]
+    }
+  }
+
+  return images;
+}
+```
+
+This generates a type definition:
+
+```typescript title=".next/types/public-images.d.ts"
+declare module "next/image" {
+  export type PublicImagePath =
+    | "/next.svg"
+    | "/vercel.svg"
+    | "/og-image.png";
+
+  type ImageSrc = PublicImagePath | ExternalUrl | StaticImageData;
+
+  export interface ImageProps extends Omit<OriginalImageProps, "src"> {
+    src: ImageSrc; // [!code highlight]
+  }
+}
+```
+
+Now using invalid image paths is a **compile-time error**, not a runtime error.
+
+The plugin runs automatically because it's imported in `next.config.ts`:
+
+```typescript title="next.config.ts"
+// Generate TypeScript types for public images
+import "./plugins/next/public-images"; // [!code highlight]
+
+const nextConfig: NextConfig = {
+  // ... config
+};
+```
+
+See the [complete plugin implementation](https://github.com/sashkode/sashkode/blob/trunk/plugins/next/public-images.ts).
+
+#### TypeScript Language Service Plugin
+
+The [`next-safe-page` TypeScript plugin](https://github.com/sashkode/sashkode/blob/trunk/plugins/typescript/next-safe-page/src/index.ts) validates that page routes match file locations:
+
+```typescript
+export default Page.create({
+  path: "/blog/[slug]", // Must match file location: app/blog/[slug]/page.tsx // [!code highlight]
+  name: "blog-post",
+})
+  .searchParamsSchema({ page: z.coerce.number().default(1) })
+  .page(async ({ getPathParams, getSearchParams }) => {
+    const { slug } = await getPathParams();
+    const { page } = await getSearchParams();
+    return <div>Blog Post: {slug}</div>;
+  });
+```
+
+If the path doesn't match the file location, you get IDE squigglies immediately. This prevents mismatched routes before runtime.
+
+## The Stack: Next.js, PlanetScale, Drizzle, Vercel
+
+Here's the actual stack for 2026, built for velocity and type safety:
+
+### Framework: Next.js
+
+Staying with [Next.js](https://nextjs.org) because:
+
+1. **Mature ecosystem** — tooling, plugins, patterns are established
+2. **Custom utilities built** — type-safe pages, search params, server actions
+3. **Framework-defined infrastructure** — Vercel understands Next.js natively
+
+Not ruling out [TanStack Start](https://tanstack.com/start), but the migration cost doesn't justify the benefits yet. See [Why I'm NOT switching to TanStack Start](https://github.com/sashkode/sashkode/blob/trunk/content/videos/why-im-not-switching-to-tan-stack-start-type-safety-in-nextjs.mdx) for the full comparison.
+
+### Type-Safe Utilities
+
+Custom wrappers for type safety:
+
+- **[next-safe-action](https://next-safe-action.dev/)** — Type-safe server actions with validation
+- **Custom `Page.create()` API** — Type-safe search params and path params
+
+See the [`Page` implementation](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/safe-page.tsx) for details.
+
+Example server action with logging and error handling:
+
+```typescript title="src/platform/server/server-action.ts"
+export const ServerAction = {
+  create: <T extends string>(metadata: { name: KebabCase<"name", T> }) =>
+    createSafeActionClient({
+      defineMetadataSchema: () => metadataSchema,
+      handleServerError: (e, utils) => {
+        const { clientInput, ctx } = utils;
+        const actionLogger = ctx.logger;
+
+        if (e instanceof ServerError) { // [!code highlight]
+          // Known error - return message to client
+          actionLogger.debug(`Known error: ${e.message}`);
+          return e.message;
+        }
+
+        // Unknown error - log and return generic message
+        actionLogger.error("Unknown server error", { error: e });
+        return "An unexpected error occurred";
+      },
+    })
+      .metadata(metadata)
+      .use(({ next }) => {
+        const logger = Logger.child({ scope: "SERVER_ACTION", topic: metadata.name });
+        return next({ ctx: { logger } });
+      }),
+};
+```
+
+See the [full server action implementation](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/server-action.ts).
+
+### UI: shadcn + Tailwind
+
+- **[shadcn/ui](https://ui.shadcn.com/)** — Copy-paste components you own
+- **[Tailwind CSS](https://tailwindcss.com/)** — Utility-first styling
+
+This combination provides speed without framework lock-in.
+
+### Database: PlanetScale + Drizzle
+
+- **[PlanetScale](https://planetscale.com/)** — Serverless MySQL with branching and safe migrations
+- **[Drizzle ORM](https://orm.drizzle.team/)** — Type-safe SQL queries (1.0 coming in 2026)
+
+PlanetScale's [database branching](https://planetscale.com/docs/concepts/branching) enables preview environments with isolated schema changes. Safe migrations allow zero-downtime schema updates.
+
+### Infrastructure: Vercel + Workflow Dev Kit
+
+- **[Vercel](https://vercel.com/)** — Deployment platform with framework-defined infrastructure
+- **[Workflow Dev Kit](https://useworkflow.dev/)** — Durable execution without managing queues
+
+The Workflow SDK provides background jobs, retries, and scheduled execution without manual queue management.
+
+### Type Safety Utilities
+
+Custom utilities enforce correctness at compile time:
+
+- **[kebab-case validator](https://github.com/sashkode/sashkode/blob/trunk/src/utils/shared/kebab-case.ts)** — Type-level validation for naming conventions
+
+```typescript title="src/utils/shared/kebab-case.ts"
+export type KebabCase<VariableName extends string, S extends string> =
+  S extends `${string}${UppercaseLetter}${string}`
+    ? Never<`${VariableName} contains uppercase letters - kebab-case requires lowercase only`>
+    : S extends ` ${string}` | `${string} ` | `${string} ${string}`
+      ? Never<`${VariableName} contains spaces - kebab-case uses hyphens instead`>
+      : S;
+```
+
+This provides compile-time errors with descriptive messages when naming conventions are violated.
+
+## Shipping Fast: The System
+
+Velocity isn't about writing code faster. It's about designing systems—technical and human—that don't fight you:
+
+1. **Stacked diffs** — Merge small PRs continuously instead of blocking on large reviews
+2. **Agentic workflows** — Extend AI leverage beyond code to product and project work
+3. **Code-defined infrastructure** — Let code declare its infrastructure needs automatically
+
+The tech stack matters, but the process matters more. AI will write more code in 2026. Your job is to structure the system so that code ships safely and fast.
+
+## Further Exploration
+
+Related implementations in this repository:
+
+- [Workflow Implementation](https://github.com/sashkode/sashkode/blob/trunk/src/features/videos/server/video-to-article.workflow.ts) — Durable execution example
+- [Type-Safe Pages](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/safe-page.tsx) — Search param validation
+- [Server Actions](https://github.com/sashkode/sashkode/blob/trunk/src/platform/server/server-action.ts) — Error handling and logging
+- [Public Images Plugin](https://github.com/sashkode/sashkode/blob/trunk/plugins/next/public-images.ts) — Build-time type generation
+- [Next.js Config](https://github.com/sashkode/sashkode/blob/trunk/next.config.ts) — Workflow and MDX setup
+- [Kebab-Case Utility](https://github.com/sashkode/sashkode/blob/trunk/src/utils/shared/kebab-case.ts) — Type-level validation
+- [TypeScript Plugin](https://github.com/sashkode/sashkode/blob/trunk/plugins/typescript/next-safe-page/src/index.ts) — Route validation
+
+Related articles:
+
+- [Infrastructure-as-Code Sucks](https://github.com/sashkode/sashkode/blob/trunk/content/videos/infrastructure-as-code-sucks-why-framework-defined-infrastructure-is-the-future.mdx) — Deep dive on framework-defined infrastructure
+- [5 Advanced Repo Tricks](https://github.com/sashkode/sashkode/blob/trunk/content/videos/5-advanced-repo-tricks-codegen-ts-plugins-and-stuff-youve-never-used.mdx) — More codegen and automation patterns
+- [Why I'm NOT switching to TanStack Start](https://github.com/sashkode/sashkode/blob/trunk/content/videos/why-im-not-switching-to-tan-stack-start-type-safety-in-nextjs.mdx) — Type safety in Next.js
